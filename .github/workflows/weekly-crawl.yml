@@ -66,18 +66,11 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add -A
-
-          # Check if there are changes to commit
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
-            git commit -m "Archive snapshot: $TIMESTAMP
-
-          Automated weekly crawl by GitHub Actions.
-
-          $(cat data/manifest.json | python -c "import sys,json; m=json.load(sys.stdin); print(f'Pages archived: {len(m.get(\"pages\", {}))}')" 2>/dev/null || echo '')
-          "
+            git commit -m "Archive snapshot: $TIMESTAMP"
             git push
           fi
 
