@@ -313,6 +313,67 @@ def full_import():
     subprocess.run(["php", f"{LOCAL_WIKI_DIR}/maintenance/refreshLinks.php"])
 
 
+def templates_import():
+    """Import only templates, MediaWiki pages, and categories (not main articles)."""
+    print("\n=== IMPORTING TEMPLATES & MEDIAWIKI PAGES ===\n")
+
+    pages = []
+    # Only non-article namespaces: 4=Project, 6=File, 8=MediaWiki, 10=Template, 14=Category
+    namespaces = ["4", "6", "8", "10", "14"]
+
+    for ns in namespaces:
+        print(f"  Fetching namespace {ns}...")
+        params = {
+            "action": "query",
+            "list": "allpages",
+            "aplimit": "500",
+            "apfilterredir": "nonredirects",
+            "apnamespace": ns,
+        }
+
+        while True:
+            data = api_request(params.copy(), f"fetching namespace {ns}")
+            if not data:
+                break
+
+            batch = data.get("query", {}).get("allpages", [])
+            pages.extend([p["title"] for p in batch])
+            print(f"  Retrieved {len(pages)} pages...")
+
+            if "continue" in data:
+                params["apcontinue"] = data["continue"]["apcontinue"]
+            else:
+                break
+
+    print(f"\nPages to import: {len(pages)}")
+
+    # Import in batches
+    total_batches = (len(pages) + BATCH_SIZE - 1) // BATCH_SIZE
+    imported = 0
+    failed = 0
+
+    for i in range(0, len(pages), BATCH_SIZE):
+        batch = pages[i:i + BATCH_SIZE]
+        batch_num = i // BATCH_SIZE + 1
+
+        print(f"\n[Batch {batch_num}/{total_batches}]")
+
+        try:
+            xml = export_pages(batch)
+            if import_xml(xml):
+                imported += len(batch)
+                print(f"  Imported {len(batch)} pages")
+            else:
+                failed += len(batch)
+        except Exception as e:
+            print(f"  Batch failed: {e}")
+            failed += len(batch)
+
+    print(f"\n=== IMPORT COMPLETE ===")
+    print(f"Imported: {imported}")
+    print(f"Failed: {failed}")
+
+
 def recent_import(days=7):
     """Import only recently changed pages."""
     print(f"\n=== IMPORTING RECENT CHANGES ({days} days) ===\n")
@@ -362,9 +423,10 @@ def main():
     parser.add_argument("--full", action="store_true", help="Full import of all pages")
     parser.add_argument("--recent", action="store_true", help="Import recent changes only")
     parser.add_argument("--images", action="store_true", help="Import images")
+    parser.add_argument("--templates", action="store_true", help="Import only templates, MediaWiki pages, categories (fast)")
     args = parser.parse_args()
 
-    if not any([args.full, args.recent, args.images]):
+    if not any([args.full, args.recent, args.images, args.templates]):
         parser.print_help()
         sys.exit(1)
 
@@ -377,6 +439,9 @@ def main():
     try:
         if args.full:
             full_import()
+
+        if args.templates:
+            templates_import()
 
         if args.recent:
             recent_import()
