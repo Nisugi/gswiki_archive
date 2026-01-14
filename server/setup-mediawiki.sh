@@ -193,11 +193,7 @@ $wgFooterIcons['poweredby']['gswiki'] = [
     "alt" => "Archived from GSWiki"
 ];
 
-# Add archive notice to every page via site notice
-$wgSiteNotice = '<div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-bottom: 3px solid #e94560; padding: 10px 20px; text-align: center; color: white; font-family: sans-serif;">
-<strong style="color: #e94560;">📦 ARCHIVED SNAPSHOT</strong> of GSWiki •
-<a href="https://gswiki.play.net" style="color: #4fbdba;" target="_blank">View live wiki →</a>
-</div>';
+# Site notice will be created via fix-sitenotice.sh after install
 SETTINGS
 
 # Set permissions
@@ -221,5 +217,6 @@ echo ""
 echo "Next steps:"
 echo "  1. Visit http://gswiki-archive.gs-game.uk to verify it works"
 echo "  2. Change the admin password"
-echo "  3. Run the content import script"
+echo "  3. Run: bash fix-sitenotice.sh (creates archive banner)"
+echo "  4. Run: python3 import-content.py --full (imports wiki content)"
 echo ""
