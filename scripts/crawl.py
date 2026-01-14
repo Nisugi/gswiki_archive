@@ -284,6 +284,21 @@ def make_images_absolute(soup, base_url):
             img["class"] = img.get("class", []) + ["archive-img"]
 
 
+def make_resources_absolute(soup, base_url):
+    """Make CSS and JS resource URLs absolute so they load from the original wiki."""
+    # Fix stylesheet links
+    for link in soup.find_all("link", href=True):
+        href = link["href"]
+        if href.startswith("/") and not href.startswith("//"):
+            link["href"] = base_url + href
+
+    # Fix script sources
+    for script in soup.find_all("script", src=True):
+        src = script["src"]
+        if src.startswith("/") and not src.startswith("//"):
+            script["src"] = base_url + src
+
+
 def inject_archive_banner(soup, crawl_timestamp):
     """Inject the archive banner at the top of the page."""
     banner_html = f'''
@@ -331,6 +346,9 @@ def process_page(session, title, crawl_timestamp):
 
     # Make images absolute with fallback
     make_images_absolute(soup, BASE_URL)
+
+    # Make CSS/JS load from original wiki
+    make_resources_absolute(soup, BASE_URL)
 
     # Inject archive banner
     inject_archive_banner(soup, crawl_timestamp)
