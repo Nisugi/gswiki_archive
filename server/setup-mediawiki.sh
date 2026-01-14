@@ -24,7 +24,7 @@ echo ""
 echo "Configuration:"
 echo "  Install directory: $WIKI_DIR"
 echo "  Database: $DB_NAME"
-echo "  Server: http://$SERVER_NAME"
+echo "  Server: http://$SERVER_NAME:8081"
 echo ""
 read -p "Continue? [y/N] " -n 1 -r
 echo
@@ -93,7 +93,7 @@ echo ""
 echo "[5/7] Configuring Nginx..."
 cat > /etc/nginx/sites-available/gswiki-archive << NGINX
 server {
-    listen 80;
+    listen 8081;
     server_name $SERVER_NAME;
     root $WIKI_DIR;
     index index.php;
@@ -146,7 +146,7 @@ php maintenance/install.php \
     --lang="en" \
     --pass="ArchiveAdmin123!" \
     --scriptpath="" \
-    --server="http://$SERVER_NAME" \
+    --server="http://$SERVER_NAME:8081" \
     "GSWiki Archive" \
     "Admin"
 
@@ -209,7 +209,7 @@ echo "=========================================="
 echo "  Setup Complete!"
 echo "=========================================="
 echo ""
-echo "MediaWiki installed at: http://$SERVER_NAME"
+echo "MediaWiki installed at: http://$SERVER_NAME:8081"
 echo ""
 echo "Admin login:"
 echo "  Username: Admin"
@@ -219,7 +219,7 @@ echo ""
 echo "Database credentials: /root/.gswiki-db-credentials"
 echo ""
 echo "Next steps:"
-echo "  1. Visit http://$SERVER_NAME to verify it works"
+echo "  1. Visit http://$SERVER_NAME:8081 to verify it works"
 echo "  2. Change the admin password"
 echo "  3. Run the content import script"
 echo ""
