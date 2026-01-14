@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for Pagefind)
+node_modules/
+
+# Logs
+*.log
+
+# Don't ignore the docs folder (that's our output!)
+# But do ignore any temp files
+docs/*.tmp

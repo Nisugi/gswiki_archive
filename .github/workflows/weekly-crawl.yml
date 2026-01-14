@@ -1,0 +1,112 @@
+name: Weekly Archive Crawl
+
+on:
+  # Run every Sunday at 3:00 AM UTC
+  schedule:
+    - cron: '0 3 * * 0'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      crawl_type:
+        description: 'Crawl type'
+        required: true
+        default: 'incremental'
+        type: choice
+        options:
+          - incremental
+          - full
+
+# Permissions needed for GitHub Pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max for full crawl
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Set up Node.js (for Pagefind)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Pagefind
+        run: npm install -g pagefind
+
+      - name: Run crawler (incremental)
+        if: github.event.inputs.crawl_type != 'full'
+        run: python scripts/crawl.py --incremental
+
+      - name: Run crawler (full)
+        if: github.event.inputs.crawl_type == 'full'
+        run: python scripts/crawl.py --full
+
+      - name: Build search index
+        run: python scripts/build_search.py
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add -A
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+            git commit -m "Archive snapshot: $TIMESTAMP
+
+          Automated weekly crawl by GitHub Actions.
+
+          $(cat data/manifest.json | python -c "import sys,json; m=json.load(sys.stdin); print(f'Pages archived: {len(m.get(\"pages\", {}))}')" 2>/dev/null || echo '')
+          "
+            git push
+          fi
+
+  # Deploy to GitHub Pages after crawl completes
+  deploy:
+    needs: crawl
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Pull latest changes
+        run: git pull
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

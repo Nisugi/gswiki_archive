@@ -1,0 +1,31 @@
+{
+  "wiki": {
+    "base_url": "https://gswiki.play.net",
+    "api_endpoint": "https://gswiki.play.net/api.php",
+    "name": "GSWiki",
+    "live_wiki_url": "https://gswiki.play.net"
+  },
+  "crawl": {
+    "delay_seconds": 3,
+    "user_agent": "GSWikiArchiveBot/1.0 (Community preservation project; contact: Nisug.gs4@gmail.com)",
+    "max_retries": 3,
+    "retry_delay_seconds": 10,
+    "timeout_seconds": 30
+  },
+  "output": {
+    "docs_dir": "docs",
+    "wiki_dir": "docs/wiki",
+    "assets_dir": "docs/assets",
+    "search_dir": "docs/search",
+    "data_dir": "data"
+  },
+  "exclusions": {
+    "templates": ["Template:Characterprofile"],
+    "namespaces_to_skip": ["User:", "User_talk:", "Talk:"],
+    "opted_in_file": "data/opted_in.json"
+  },
+  "archive": {
+    "banner_text": "ARCHIVED SNAPSHOT of GSWiki",
+    "disclaimer": "This is an unofficial community preservation project. Content belongs to its original authors."
+  }
+}
