@@ -24,8 +24,45 @@ import requests
 SOURCE_WIKI = "https://gswiki.play.net"
 SOURCE_API = f"{SOURCE_WIKI}/api.php"
 LOCAL_WIKI_DIR = "/var/www/gswiki-archive"
+LOCAL_SETTINGS = f"{LOCAL_WIKI_DIR}/LocalSettings.php"
 DELAY_SECONDS = 2  # Be polite to source wiki
 BATCH_SIZE = 50    # Pages per export batch
+
+
+def disable_read_only():
+    """Temporarily disable read-only mode for import."""
+    print("Disabling read-only mode for import...")
+    try:
+        with open(LOCAL_SETTINGS, 'r') as f:
+            content = f.read()
+
+        # Comment out the $wgReadOnly line
+        new_content = content.replace('$wgReadOnly =', '# $wgReadOnly =')
+
+        with open(LOCAL_SETTINGS, 'w') as f:
+            f.write(new_content)
+        return True
+    except Exception as e:
+        print(f"  Warning: Could not disable read-only: {e}")
+        return False
+
+
+def enable_read_only():
+    """Re-enable read-only mode after import."""
+    print("Re-enabling read-only mode...")
+    try:
+        with open(LOCAL_SETTINGS, 'r') as f:
+            content = f.read()
+
+        # Uncomment the $wgReadOnly line
+        new_content = content.replace('# $wgReadOnly =', '$wgReadOnly =')
+
+        with open(LOCAL_SETTINGS, 'w') as f:
+            f.write(new_content)
+        return True
+    except Exception as e:
+        print(f"  Warning: Could not re-enable read-only: {e}")
+        return False
 
 # Templates to exclude (character pages)
 EXCLUDE_TEMPLATES = ["Template:Characterprofile"]
@@ -326,14 +363,21 @@ def main():
     print("GSWiki Archive - Content Import")
     print("=" * 50)
 
-    if args.full:
-        full_import()
+    # Disable read-only mode for import
+    disable_read_only()
 
-    if args.recent:
-        recent_import()
+    try:
+        if args.full:
+            full_import()
 
-    if args.images:
-        import_images()
+        if args.recent:
+            recent_import()
+
+        if args.images:
+            import_images()
+    finally:
+        # Always re-enable read-only mode, even if import fails
+        enable_read_only()
 
 
 if __name__ == "__main__":
