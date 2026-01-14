@@ -26,3 +26,4 @@ node_modules/
 # Don't ignore the docs folder (that's our output!)
 # But do ignore any temp files
 docs/*.tmp
+
