@@ -91,26 +91,34 @@ def get_all_pages():
     """Get list of all pages from source wiki."""
     print("Fetching page list from source wiki...")
     pages = []
-    params = {
-        "action": "query",
-        "list": "allpages",
-        "aplimit": "500",
-        "apfilterredir": "nonredirects",
-    }
 
-    while True:
-        data = api_request(params.copy(), "fetching page list")
-        if not data:
-            break
+    # Namespaces to import:
+    # 0 = Main, 4 = Project, 6 = File, 8 = MediaWiki, 10 = Template, 14 = Category
+    namespaces_to_import = ["0", "4", "6", "8", "10", "14"]
 
-        batch = data.get("query", {}).get("allpages", [])
-        pages.extend([p["title"] for p in batch])
-        print(f"  Retrieved {len(pages)} pages...")
+    for ns in namespaces_to_import:
+        print(f"  Fetching namespace {ns}...")
+        params = {
+            "action": "query",
+            "list": "allpages",
+            "aplimit": "500",
+            "apfilterredir": "nonredirects",
+            "apnamespace": ns,
+        }
 
-        if "continue" in data:
-            params["apcontinue"] = data["continue"]["apcontinue"]
-        else:
-            break
+        while True:
+            data = api_request(params.copy(), "fetching page list")
+            if not data:
+                break
+
+            batch = data.get("query", {}).get("allpages", [])
+            pages.extend([p["title"] for p in batch])
+            print(f"  Retrieved {len(pages)} pages...")
+
+            if "continue" in data:
+                params["apcontinue"] = data["continue"]["apcontinue"]
+            else:
+                break
 
     return pages
 
