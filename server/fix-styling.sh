@@ -37,19 +37,13 @@ if [ ! -d "$WIKI_DIR/extensions/LabeledSectionTransclusion" ]; then
   chown -R www-data:www-data LabeledSectionTransclusion
 fi
 
-# Remove ALL old ARCHIVE STYLING blocks (cleanup any duplicates)
-echo "Cleaning up old styling blocks from LocalSettings.php..."
-# Remove any block starting with ## ARCHIVE STYLING until };
-sed -i '/## ===.*ARCHIVE STYLING/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
-# Also remove any standalone BeforePageDisplay hooks we added
-sed -i '/\/\/ Get archive date from marker file/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
-# Remove any body::before CSS remnants
-sed -i '/body::before/d' "$WIKI_DIR/LocalSettings.php"
-# Remove empty lines at end of file
-sed -i -e :a -e '/^\s*$/d;N;ba' "$WIKI_DIR/LocalSettings.php" 2>/dev/null || true
-
-# Add archive customizations to LocalSettings.php
-cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
+# Check if our archive styling block already exists
+if grep -q "## ARCHIVE STYLING - Match live wiki" "$WIKI_DIR/LocalSettings.php"; then
+  echo "Archive styling block already exists, skipping..."
+else
+  echo "Adding archive styling block..."
+  # Add archive customizations to LocalSettings.php
+  cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
 
 ## ================================================
 ## ARCHIVE STYLING - Match live wiki appearance
@@ -113,6 +107,7 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     return true;
 };
 SETTINGS
+fi
 
 # Update archive date marker
 echo "Updating archive date..."
