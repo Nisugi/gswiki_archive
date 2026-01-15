@@ -137,13 +137,13 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #siteNotice { display: none !important; }
     ');
 
-    // Inject banner via JS into <html> element (outside body's stacking contexts)
+    // Inject banner as first child of body (same stacking context as mw-head)
     $out->addInlineScript('
         (function() {
             var banner = document.createElement("div");
             banner.id = "archive-banner";
             banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a>\';
-            document.documentElement.insertBefore(banner, document.body);
+            document.body.insertBefore(banner, document.body.firstChild);
         })();
     ');
     return true;
