@@ -92,6 +92,13 @@ $wgHooks['AbortLogin'][] = function() { return false; };
 
 # Hide login UI (but keep dark mode) and add full-width archive banner
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
+    global $IP;
+    $archiveDate = 'Unknown';
+    $dateFile = "$IP/.archive-date";
+    if ( file_exists( $dateFile ) ) {
+        $archiveDate = trim( file_get_contents( $dateFile ) );
+    }
+
     $out->addInlineStyle('
         /* Hide login UI only - keep dark mode visible */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
@@ -120,6 +127,10 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             color: #e94560;
             margin-right: 8px;
         }
+        #archive-banner .archive-date {
+            color: #94a3b8;
+            margin-right: 8px;
+        }
         #archive-banner a {
             color: #7dd3fc;
             text-decoration: none;
@@ -134,12 +145,12 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #mw-panel { top: 190px !important; }
     ');
 
-    // Inject full-width archive banner
+    // Inject full-width archive banner with date
     $out->addInlineScript('
         (function() {
             var banner = document.createElement("div");
             banner.id = "archive-banner";
-            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki \u2022 <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
+            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span><span class="archive-date">(' . htmlspecialchars( $archiveDate ) . ')</span> of GSWiki \u2022 <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
             document.body.insertBefore(banner, document.body.firstChild);
         })();
     ');
