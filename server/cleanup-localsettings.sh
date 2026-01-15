@@ -3,8 +3,25 @@
 # Clean up LocalSettings.php by removing all duplicate styling blocks
 # Run this once to fix the mess, then run fix-styling.sh
 #
+# Usage:
+#   source server/config/gswiki.conf && bash server/cleanup-localsettings.sh
+#   bash server/cleanup-localsettings.sh server/config/gswiki.conf
+#
 
-WIKI_DIR="/var/www/gswiki-archive"
+set -euo pipefail
+
+CONFIG_FILE="${1:-}"
+
+if [ -n "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+fi
+
+if [ -z "${WIKI_DIR:-}" ]; then
+    echo "ERROR: No wiki configuration loaded. Source server/config/<wiki>.conf or pass it as the first argument."
+    exit 1
+fi
+
 SETTINGS="$WIKI_DIR/LocalSettings.php"
 BACKUP="$WIKI_DIR/LocalSettings.php.backup"
 
@@ -19,7 +36,7 @@ echo "Backup saved to $BACKUP"
 echo "Removing all archive styling blocks..."
 
 # Find the line number of "# Site notice" or similar marker
-CUTOFF=$(grep -n "Site notice\|# Footer\|ARCHIVE STYLING" "$SETTINGS" | head -1 | cut -d: -f1)
+CUTOFF=$(grep -n "Site notice\|# Footer\|ARCHIVE STYLING" "$SETTINGS" | head -1 | cut -d: -f1 || true)
 
 if [ -n "$CUTOFF" ]; then
     # Keep only lines before the cutoff

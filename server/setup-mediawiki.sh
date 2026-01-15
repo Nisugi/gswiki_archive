@@ -6,17 +6,26 @@
 # Usage:
 #   source server/config/gswiki.conf && sudo bash server/setup-mediawiki.sh
 #   source server/config/elanthipedia.conf && sudo bash server/setup-mediawiki.sh
+#   sudo bash server/setup-mediawiki.sh server/config/gswiki.conf
 #
 
-set -e
+set -euo pipefail
+
+CONFIG_FILE="${1:-}"
+
+if [ -n "$CONFIG_FILE" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+fi
 
 # Check if config was sourced
-if [ -z "$WIKI_ID" ]; then
+if [ -z "${WIKI_ID:-}" ]; then
     echo "ERROR: No wiki configuration loaded!"
     echo ""
     echo "Usage:"
     echo "  source server/config/gswiki.conf && sudo bash server/setup-mediawiki.sh"
     echo "  source server/config/elanthipedia.conf && sudo bash server/setup-mediawiki.sh"
+    echo "  sudo bash server/setup-mediawiki.sh server/config/gswiki.conf"
     exit 1
 fi
 
@@ -26,14 +35,36 @@ echo "=========================================="
 
 # Configuration (from sourced config file)
 # WIKI_DIR, DB_NAME, DB_USER come from config
-DB_PASS=$(openssl rand -base64 16)
 MEDIAWIKI_VERSION="1.41.1"
+DB_PASS="${ARCHIVE_DB_PASS:-$(openssl rand -base64 16)}"
+DB_PASS_FROM_ENV="false"
+[ -n "${ARCHIVE_DB_PASS:-}" ] && DB_PASS_FROM_ENV="true"
+
+ADMIN_USER="${ARCHIVE_ADMIN_USER:-Admin}"
+if [ -n "${ARCHIVE_ADMIN_PASS:-}" ]; then
+    ADMIN_PASS="$ARCHIVE_ADMIN_PASS"
+    PRINT_ADMIN_PASS="false"
+else
+    ADMIN_PASS=$(openssl rand -base64 20)
+    PRINT_ADMIN_PASS="true"
+fi
 
 echo ""
 echo "Configuration:"
 echo "  Install directory: $WIKI_DIR"
 echo "  Database: $DB_NAME"
 echo "  Server: http://${ARCHIVE_DOMAIN}"
+echo "  Admin user: ${ADMIN_USER}"
+if [ "$DB_PASS_FROM_ENV" = "true" ]; then
+    echo "  DB password: provided via ARCHIVE_DB_PASS"
+else
+    echo "  DB password: generated (will be saved to /root/.${WIKI_ID}-db-credentials)"
+fi
+if [ "$PRINT_ADMIN_PASS" = "false" ]; then
+    echo "  Admin password: provided via ARCHIVE_ADMIN_PASS (not printed)"
+else
+    echo "  Admin password: will be generated and printed below"
+fi
 echo ""
 read -p "Continue? [y/N] " -n 1 -r
 echo
@@ -153,11 +184,11 @@ php maintenance/install.php \
     --dbpass="$DB_PASS" \
     --dbserver="localhost" \
     --lang="en" \
-    --pass="ArchiveAdmin123!" \
+    --pass="$ADMIN_PASS" \
     --scriptpath="" \
     --server="http://${ARCHIVE_DOMAIN}" \
     "${WIKI_NAME} Archive" \
-    "Admin"
+    "$ADMIN_USER"
 
 # Configure as read-only archive
 echo ""
@@ -217,15 +248,18 @@ echo ""
 echo "MediaWiki installed at: http://${ARCHIVE_DOMAIN}"
 echo ""
 echo "Admin login:"
-echo "  Username: Admin"
-echo "  Password: ArchiveAdmin123!"
-echo "  (Change this password immediately!)"
+echo "  Username: ${ADMIN_USER}"
+if [ "$PRINT_ADMIN_PASS" = "true" ]; then
+    echo "  Password: ${ADMIN_PASS}"
+    echo "  (Store this securely or set ARCHIVE_ADMIN_PASS to use a managed secret.)"
+else
+    echo "  Password: provided via ARCHIVE_ADMIN_PASS"
+fi
 echo ""
 echo "Database credentials: /root/.${WIKI_ID}-db-credentials"
 echo ""
 echo "Next steps:"
 echo "  1. Visit http://${ARCHIVE_DOMAIN} to verify it works"
-echo "  2. Change the admin password"
-echo "  3. Run: source server/config/${WIKI_ID}.conf && bash server/fix-styling.sh"
-echo "  4. Run: python3 server/import-content.py --wiki ${WIKI_ID} --full"
+echo "  2. Run: source server/config/${WIKI_ID}.conf && bash server/fix-styling.sh"
+echo "  3. Run: source server/config/${WIKI_ID}.conf && python3 server/import-content.py --full"
 echo ""

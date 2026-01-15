@@ -19,13 +19,8 @@
     "search_dir": "docs/search",
     "data_dir": "data"
   },
-  "exclusions": {
-    "templates": ["Template:Characterprofile"],
-    "namespaces_to_skip": ["User:", "User_talk:", "Talk:"],
-    "opted_in_file": "data/opted_in.json"
-  },
   "archive": {
-    "banner_text": "ARCHIVED SNAPSHOT of GSWiki",
+    "banner_text": "ARCHIVED SNAPSHOT",
     "disclaimer": "This is an unofficial community preservation project. Content belongs to its original authors."
   }
 }

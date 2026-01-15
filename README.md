@@ -46,29 +46,28 @@ The system uses a config-based approach to support multiple wikis:
 
 ```
 gswiki_archive/
-├── server/                    # VPS server scripts
-│   ├── config/                # Wiki configuration files
-│   │   ├── gswiki.conf        # GSWiki configuration
-│   │   └── elanthipedia.conf  # Elanthipedia configuration
-│   ├── setup-mediawiki.sh     # Initial MediaWiki installation
-│   ├── import-content.py      # Content import from live wiki
-│   ├── fix-styling.sh         # Apply archive styling/branding
-│   ├── fix-sitenotice.sh      # Configure site notice
-│   ├── weekly-update.sh       # Cron job for incremental updates
-│   ├── create-static-mirror.sh # Create downloadable offline archive
-│   ├── fix-static-mirror.py   # Post-process static files for offline viewing
-│   └── nginx-downloads.conf   # Nginx config for downloads directory
-├── scripts/                   # GitHub Pages scripts (legacy)
-│   ├── crawl.py               # Page crawler
-│   └── build_search.py        # Search index builder
-├── docs/                      # GitHub Pages static site
-│   ├── index.html             # Homepage with search
-│   ├── wiki/                  # Archived HTML pages
-│   └── assets/                # CSS/JS assets
-├── data/                      # Configuration data
-│   ├── opted_in.json          # Character pages that opted into archive
-│   └── exclusions.json        # Pages excluded from archive
-└── config.json                # Project configuration
+|- server/                     # VPS server scripts
+|  |- config/                  # Wiki configuration files
+|  |  |- gswiki.conf           # GSWiki configuration
+|  |  |- elanthipedia.conf     # Elanthipedia configuration
+|  |- setup-mediawiki.sh       # Initial MediaWiki installation
+|  |- import-content.py        # Content import from live wiki
+|  |- fix-styling.sh           # Apply archive styling/branding
+|  |- fix-sitenotice.sh        # Configure site notice
+|  |- weekly-update.sh         # Cron job for incremental updates
+|  |- create-static-mirror.sh  # Create downloadable offline archive
+|  |- fix-static-mirror.py     # Post-process static files for offline viewing
+|  |- nginx-downloads.conf     # Nginx config for downloads directory
+|- scripts/                    # GitHub Pages scripts (legacy)
+|  |- crawl.py                 # Page crawler
+|  |- build_search.py          # Search index builder
+|- docs/                       # GitHub Pages static site
+|  |- index.html               # Homepage with search
+|  |- wiki/                    # Archived HTML pages
+|  |- assets/                  # CSS/JS assets
+|- data/                       # Archive metadata (manifest, search, etc.)
+|  |- manifest.json            # Crawl manifest (generated)
+|- config.json                 # Project configuration
 ```
 
 ## Server Setup (VPS)
@@ -93,6 +92,14 @@ source server/config/gswiki.conf && sudo bash server/setup-mediawiki.sh
 
 # For Elanthipedia:
 source server/config/elanthipedia.conf && sudo bash server/setup-mediawiki.sh
+```
+
+For automation/CI, set secrets as environment variables before running setup:
+
+```bash
+export ARCHIVE_ADMIN_PASS="use-a-secret-here"   # required if you want a fixed admin password
+export ARCHIVE_DB_PASS="db-secret-optional"     # optional; otherwise generated
+export ARCHIVE_ADMIN_USER="Admin"               # optional override
 ```
 
 This script:
@@ -130,8 +137,8 @@ python3 server/import-content.py --images
 ```
 
 Import options:
-- `--full` - Import all main content pages (takes several hours)
-- `--templates` - Only templates, categories, MediaWiki pages (quick)
+- `--full` - Import all pages across all namespaces (including user/talk and redirects)
+- `--templates` - Only templates, categories, MediaWiki pages (quick subset)
 - `--recent` - Only recently changed pages (for incremental updates)
 - `--images` - Download and import all images
 
@@ -200,20 +207,21 @@ The static mirror:
 # Add to root's crontab
 crontab -e
 
-# Add this line (runs every Sunday at 3 AM):
-0 3 * * 0 /root/gswiki_archive/server/weekly-update.sh >> /var/log/gswiki-update.log 2>&1
+# Add one entry per wiki (runs every Sunday at 3 AM):
+0 3 * * 0 source /root/gswiki_archive/server/config/gswiki.conf && /root/gswiki_archive/server/weekly-update.sh >> /var/log/gswiki-update.log 2>&1
+0 3 * * 0 source /root/gswiki_archive/server/config/elanthipedia.conf && /root/gswiki_archive/server/weekly-update.sh >> /var/log/elanthipedia-update.log 2>&1
 ```
 
 ## Server Scripts Reference
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `setup-mediawiki.sh` | Initial MediaWiki installation | `sudo bash setup-mediawiki.sh` |
-| `import-content.py` | Import pages from live wiki | `python3 import-content.py --full` |
-| `fix-styling.sh` | Apply archive styling | `sudo bash fix-styling.sh` |
-| `fix-sitenotice.sh` | Configure site notice | `sudo bash fix-sitenotice.sh` |
-| `weekly-update.sh` | Incremental update | Runs via cron |
-| `create-static-mirror.sh` | Create offline download | `bash create-static-mirror.sh` |
+| `setup-mediawiki.sh` | Initial MediaWiki installation | `source server/config/<wiki>.conf && sudo bash server/setup-mediawiki.sh` |
+| `import-content.py` | Import pages from live wiki | `source server/config/<wiki>.conf && python3 server/import-content.py --full` |
+| `fix-styling.sh` | Apply archive styling | `source server/config/<wiki>.conf && sudo bash server/fix-styling.sh` |
+| `fix-sitenotice.sh` | Configure site notice | `source server/config/<wiki>.conf && sudo bash server/fix-sitenotice.sh` |
+| `weekly-update.sh` | Incremental update | `source server/config/<wiki>.conf && bash server/weekly-update.sh` (cron) |
+| `create-static-mirror.sh` | Create offline download | `source server/config/<wiki>.conf && bash server/create-static-mirror.sh` |
 | `fix-static-mirror.py` | Fix static HTML for offline | Called by create-static-mirror.sh |
 
 ## Static Mirror (Offline Viewing)
@@ -280,12 +288,7 @@ systemctl restart php*-fpm
 
 ## Character Pages
 
-Player character pages are **excluded by default** to respect privacy. The archive imports all content from the main namespace except:
-- `User:` namespace
-- `User_talk:` namespace
-- `Talk:` namespace
-
-If you own a character page and want it included, please open an issue on GitHub.
+All namespaces are archived (including User and Talk pages) to keep the snapshot complete. If you need a specific page removed from the archive, please open an issue on GitHub and we will remove it before the next run.
 
 ## Privacy & Legal
 
@@ -293,6 +296,7 @@ If you own a character page and want it included, please open an issue on GitHub
 - Not affiliated with or endorsed by Simutronics Corporation
 - GemStone IV and all related content are trademarks of Simutronics
 - All wiki content belongs to its original authors and Simutronics
+- Full captures include user/talk pages; request takedowns via issues if needed
 - For the most current information, always refer to [the live wiki](https://gswiki.play.net)
 
 ## Contributing
