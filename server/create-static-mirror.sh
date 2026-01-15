@@ -18,7 +18,7 @@ WORK_DIR="/tmp/gswiki-mirror"
 OUTPUT_DIR="/var/www/gswiki-archive/downloads"
 DATE=$(date '+%Y-%m-%d')
 ARCHIVE_NAME="gswiki-static-${DATE}"
-KEEP_ARCHIVES=5  # Keep last N archives
+KEEP_ARCHIVES=2  # Keep current + 1 backup
 DELAY=1          # Seconds between requests (be polite)
 
 # Parse arguments
@@ -44,7 +44,7 @@ mkdir -p "$OUTPUT_DIR"
 rm -rf "$WORK_DIR/$ARCHIVE_NAME"
 mkdir -p "$WORK_DIR/$ARCHIVE_NAME"
 
-echo "[1/4] Crawling wiki with wget..."
+echo "[1/5] Crawling wiki with wget..."
 
 # Build wget command
 WGET_OPTS=(
@@ -75,7 +75,7 @@ fi
 wget "${WGET_OPTS[@]}" "$SOURCE_WIKI/" 2>&1 | tee "$WORK_DIR/wget.log" || true
 
 echo ""
-echo "[2/4] Cleaning up unnecessary files..."
+echo "[2/5] Cleaning up unnecessary files..."
 
 cd "$WORK_DIR/$ARCHIVE_NAME"
 
@@ -94,7 +94,14 @@ echo "  Pages: $PAGE_COUNT"
 echo "  Images: $IMAGE_COUNT"
 
 echo ""
-echo "[3/4] Creating archive..."
+echo "[3/5] Fixing HTML for offline viewing..."
+
+# Run the Python fix script to embed CSS and fix links
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$SCRIPT_DIR/fix-static-mirror.py" "$WORK_DIR/$ARCHIVE_NAME" 2>&1 | tail -5
+
+echo ""
+echo "[4/5] Creating archive..."
 
 cd "$WORK_DIR"
 
@@ -115,7 +122,7 @@ ARCHIVE_SIZE=$(du -h "$ARCHIVE_NAME.tar.gz" | cut -f1)
 echo "  Archive: $ARCHIVE_NAME.tar.gz ($ARCHIVE_SIZE)"
 
 echo ""
-echo "[4/4] Cleaning up old archives..."
+echo "[5/5] Cleaning up old archives..."
 
 # Keep only the last N archives
 cd "$OUTPUT_DIR"
@@ -125,9 +132,11 @@ ls -t gswiki-static-*.tar.gz 2>/dev/null | tail -n +$((KEEP_ARCHIVES + 1)) | xar
 echo "  Current archives:"
 ls -lh gswiki-static-*.tar.gz 2>/dev/null | awk '{print "    " $9 " (" $5 ")"}'
 
-# Cleanup work directory
-rm -rf "$WORK_DIR/$ARCHIVE_NAME"
-rm -f "$WORK_DIR/wget.log"
+# Keep work directory for debugging/re-processing (cleaned on next run)
+# To manually re-process after fixing scripts:
+#   python3 server/fix-static-mirror.py /tmp/gswiki-mirror/gswiki-static-YYYY-MM-DD
+#   cd /tmp/gswiki-mirror && tar -czf /var/www/gswiki-archive/downloads/gswiki-static-YYYY-MM-DD.tar.gz gswiki-static-YYYY-MM-DD
+echo "  Work files kept at: $WORK_DIR/$ARCHIVE_NAME"
 
 echo ""
 echo "=========================================="
@@ -138,5 +147,5 @@ echo "Download URL: https://gswiki-archive.gs-game.uk/downloads/$ARCHIVE_NAME.ta
 echo "Latest URL:   https://gswiki-archive.gs-game.uk/downloads/latest.tar.gz"
 echo ""
 echo "To extract: tar -xzf $ARCHIVE_NAME.tar.gz"
-echo "Then open:  $ARCHIVE_NAME/index.html"
+echo "Then open:  $ARCHIVE_NAME/Main_Page.html"
 echo ""
