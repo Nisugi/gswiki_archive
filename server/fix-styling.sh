@@ -137,8 +137,15 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #siteNotice { display: none !important; }
     ');
 
-    // Inject banner HTML (styling comes from MediaWiki:Common.css)
-    $out->prependHTML('<div id="archive-banner"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
+    // Inject banner via JS into <html> element (outside body's stacking contexts)
+    $out->addInlineScript('
+        (function() {
+            var banner = document.createElement("div");
+            banner.id = "archive-banner";
+            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a>\';
+            document.documentElement.insertBefore(banner, document.body);
+        })();
+    ');
     return true;
 };
 SETTINGS
