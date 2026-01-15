@@ -11,8 +11,9 @@ WIKI_DIR="/var/www/gswiki-archive"
 
 echo "=== Fixing GSWiki Archive Styling ==="
 
-# Disable read-only
-echo "Disabling read-only mode..."
+# Permanently disable $wgReadOnly (it blocks thumbnail generation)
+# Wiki is protected via permissions instead
+echo "Disabling \$wgReadOnly (allows thumbnail generation)..."
 sed -i 's/^\$wgReadOnly/# $wgReadOnly/' "$WIKI_DIR/LocalSettings.php"
 
 # Download the logo
@@ -173,10 +174,6 @@ chown www-data:www-data "$WIKI_DIR/.archive-date"
 echo "Clearing caches..."
 php "$WIKI_DIR/maintenance/rebuildLocalisationCache.php" --force 2>/dev/null || true
 rm -rf "$WIKI_DIR/cache/*" 2>/dev/null || true
-
-# Re-enable read-only
-echo "Re-enabling read-only mode..."
-sed -i 's/^# \$wgReadOnly/$wgReadOnly/' "$WIKI_DIR/LocalSettings.php"
 
 echo ""
 echo "=== Done! ==="
