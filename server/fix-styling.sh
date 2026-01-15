@@ -58,8 +58,12 @@ $wgLogo = $wgResourceBasePath . '/resources/assets/wiki.png';
 # Load Labeled Section Transclusion (for {{#section-h:}} in announcements)
 wfLoadExtension( 'LabeledSectionTransclusion' );
 
-# Hide login/account elements and add archive banner via CSS
+# Hide login/account elements and add archive banner
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
+    // Get archive date from marker file
+    $markerFile = '/var/www/gswiki-archive/.archive-date';
+    $archiveDate = file_exists($markerFile) ? trim(file_get_contents($markerFile)) : date('M j, Y');
+
     $out->addInlineStyle('
         /* Hide login and account creation */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
@@ -72,12 +76,8 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #siteNotice { display: none !important; }
 
         /* Fixed archive banner at top */
-        #mw-page-base {
-            padding-top: 40px !important;
-        }
-        body::before {
-            content: "ARCHIVED SNAPSHOT of GSWiki • Visit gswiki.play.net for live wiki";
-            display: block;
+        #mw-page-base { padding-top: 40px !important; }
+        #archive-banner {
             position: fixed;
             top: 0;
             left: 0;
@@ -91,10 +91,19 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             z-index: 9999;
             font-size: 14px;
         }
+        #archive-banner a { color: #7dd3fc; text-decoration: none; }
+        #archive-banner a:hover { text-decoration: underline; }
     ');
+
+    $out->prependHTML('<div id="archive-banner">ARCHIVED SNAPSHOT of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
     return true;
 };
 SETTINGS
+
+# Update archive date marker
+echo "Updating archive date..."
+date '+%b %d, %Y' > "$WIKI_DIR/.archive-date"
+chown www-data:www-data "$WIKI_DIR/.archive-date"
 
 # Clear caches
 echo "Clearing caches..."

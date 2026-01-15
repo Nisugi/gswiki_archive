@@ -29,6 +29,7 @@ SOURCE_WIKI = "https://gswiki.play.net"
 SOURCE_API = f"{SOURCE_WIKI}/api.php"
 LOCAL_WIKI_DIR = "/var/www/gswiki-archive"
 LOCAL_SETTINGS = f"{LOCAL_WIKI_DIR}/LocalSettings.php"
+ARCHIVE_DATE_FILE = f"{LOCAL_WIKI_DIR}/.archive-date"
 DELAY_SECONDS = 2  # Be polite to source wiki
 BATCH_SIZE = 50    # Pages per export batch
 
@@ -67,6 +68,17 @@ def enable_read_only():
     except Exception as e:
         print(f"  Warning: Could not re-enable read-only: {e}")
         return False
+
+
+def update_archive_date():
+    """Update the archive date marker file."""
+    from datetime import datetime
+    print("Updating archive date...")
+    try:
+        with open(ARCHIVE_DATE_FILE, 'w') as f:
+            f.write(datetime.now().strftime('%b %d, %Y'))
+    except Exception as e:
+        print(f"  Warning: Could not update archive date: {e}")
 
 # Namespaces to skip (User/Talk pages only - we want ALL content including character pages)
 SKIP_NAMESPACES = ["User:", "User_talk:", "Talk:"]
@@ -415,6 +427,9 @@ def main():
 
         if args.images:
             import_images()
+
+        # Update the archive date after successful import
+        update_archive_date()
     finally:
         # Always re-enable read-only mode, even if import fails
         enable_read_only()
