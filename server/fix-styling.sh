@@ -82,9 +82,10 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         /* Hide sitenotice (we use fixed banner instead) */
         #siteNotice { display: none !important; }
 
-        /* Fixed archive banner at top */
+        /* Fixed archive banner at top - must be above everything */
         #mw-page-base { padding-top: 40px !important; }
-        #mw-head { top: 40px !important; }
+        #mw-head { top: 40px !important; z-index: 99 !important; }
+        #mw-panel { margin-top: 40px !important; }
         #archive-banner {
             position: fixed;
             top: 0;
@@ -96,14 +97,15 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             text-align: center;
             padding: 8px 20px;
             font-weight: bold;
-            z-index: 999999;
+            z-index: 9999999 !important;
             font-size: 14px;
         }
+        #archive-banner .archive-label { color: #e94560; }
         #archive-banner a { color: #7dd3fc; text-decoration: none; }
         #archive-banner a:hover { text-decoration: underline; }
     ');
 
-    $out->prependHTML('<div id="archive-banner">ARCHIVED SNAPSHOT of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
+    $out->prependHTML('<div id="archive-banner"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
     return true;
 };
 SETTINGS
