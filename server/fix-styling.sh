@@ -85,7 +85,11 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         /* Fixed archive banner at top - must be above everything */
         #mw-page-base { padding-top: 40px !important; }
         #mw-head { top: 40px !important; z-index: 99 !important; }
-        #mw-panel { margin-top: 40px !important; }
+        #mw-head-base { margin-top: 40px !important; }
+        #mw-panel { margin-top: 40px !important; padding-top: 40px !important; }
+        #p-logo { top: 40px !important; }
+        .mw-logo { margin-top: 40px !important; }
+        #mw-navigation { margin-top: 40px !important; }
         #archive-banner {
             position: fixed;
             top: 0;
