@@ -29,50 +29,22 @@ for PAGE in "MediaWiki:Vector.css" "MediaWiki:Common.js" "MediaWiki:Sidebar"; do
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
 
-# Create custom MediaWiki:Common.css with siteNotice styles
-echo "Creating archive siteNotice CSS (MediaWiki:Common.css)..."
+# Create custom MediaWiki:Common.css (minimal - just hide siteNotice)
+echo "Creating archive CSS (MediaWiki:Common.css)..."
 cat > /tmp/common-css.xml << 'CSSXML'
 <mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
   <page>
     <title>MediaWiki:Common.css</title>
     <ns>8</ns>
     <revision>
-      <text bytes="600" xml:space="preserve">/* GSWiki Archive - SiteNotice styling */
-#siteNotice {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border: none;
-    border-bottom: 3px solid #e94560;
-    color: white;
-    text-align: center;
-    padding: 12px 20px;
-    font-weight: bold;
-    font-size: 14px;
-    margin-bottom: 1em;
-}
-#siteNotice .archive-label { color: #e94560; }
-#siteNotice a { color: #7dd3fc; text-decoration: none; }
-#siteNotice a:hover { text-decoration: underline; }
+      <text bytes="100" xml:space="preserve">/* GSWiki Archive - Hide siteNotice (we use header notice instead) */
+#siteNotice { display: none !important; }
 </text>
     </revision>
   </page>
 </mediawiki>
 CSSXML
 php "$WIKI_DIR/maintenance/importDump.php" /tmp/common-css.xml 2>/dev/null
-
-# Create MediaWiki:Sitenotice with archive message
-echo "Creating archive siteNotice content..."
-cat > /tmp/sitenotice.xml << 'NOTICEXML'
-<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
-  <page>
-    <title>MediaWiki:Sitenotice</title>
-    <ns>8</ns>
-    <revision>
-      <text bytes="200" xml:space="preserve"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki • For the live wiki, visit <a href="https://gswiki.play.net">gswiki.play.net</a></text>
-    </revision>
-  </page>
-</mediawiki>
-NOTICEXML
-php "$WIKI_DIR/maintenance/importDump.php" /tmp/sitenotice.xml 2>/dev/null
 
 # Install Labeled Section Transclusion extension (for {{#section-h:}} used in announcements)
 echo "Installing Labeled Section Transclusion extension..."
@@ -118,7 +90,7 @@ enableSemantics( 'gswiki-archive.gs-game.uk' );
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgHooks['AbortLogin'][] = function() { return false; };
 
-# Hide login/account UI elements (they're disabled, but hide the UI too)
+# Hide login UI and add archive notice in header
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     $out->addInlineStyle('
         /* Hide login and account creation UI */
@@ -127,6 +99,36 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #p-personal, .vector-user-links,
         #ca-viewsource, #ca-edit, #ca-history, #ca-watch, #ca-unwatch,
         .mw-editsection { display: none !important; }
+
+        /* Archive notice in header (where login used to be) */
+        #archive-header-notice {
+            position: absolute;
+            right: 1em;
+            top: 0.5em;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        #archive-header-notice .archive-label {
+            color: #e94560;
+            background: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+        #archive-header-notice a {
+            color: #3366cc;
+            margin-left: 0.5em;
+        }
+    ');
+
+    // Inject archive notice into header via JS
+    $out->addInlineScript('
+        (function() {
+            var notice = document.createElement("div");
+            notice.id = "archive-header-notice";
+            notice.innerHTML = \'<span class="archive-label">ARCHIVED</span> <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
+            var header = document.getElementById("mw-head");
+            if (header) header.appendChild(notice);
+        })();
     ');
     return true;
 };
