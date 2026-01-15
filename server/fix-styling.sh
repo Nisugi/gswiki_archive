@@ -37,9 +37,16 @@ if [ ! -d "$WIKI_DIR/extensions/LabeledSectionTransclusion" ]; then
   chown -R www-data:www-data LabeledSectionTransclusion
 fi
 
-# Remove old ARCHIVE STYLING block if it exists (we'll add updated version)
-echo "Updating LocalSettings.php..."
-sed -i '/## ARCHIVE STYLING/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
+# Remove ALL old ARCHIVE STYLING blocks (cleanup any duplicates)
+echo "Cleaning up old styling blocks from LocalSettings.php..."
+# Remove any block starting with ## ARCHIVE STYLING until };
+sed -i '/## ===.*ARCHIVE STYLING/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
+# Also remove any standalone BeforePageDisplay hooks we added
+sed -i '/\/\/ Get archive date from marker file/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
+# Remove any body::before CSS remnants
+sed -i '/body::before/d' "$WIKI_DIR/LocalSettings.php"
+# Remove empty lines at end of file
+sed -i -e :a -e '/^\s*$/d;N;ba' "$WIKI_DIR/LocalSettings.php" 2>/dev/null || true
 
 # Add archive customizations to LocalSettings.php
 cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
