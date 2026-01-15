@@ -29,6 +29,14 @@ for PAGE in "MediaWiki:Common.css" "MediaWiki:Vector.css" "MediaWiki:Common.js" 
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
 
+# Install Labeled Section Transclusion extension (for {{#section-h:}} used in announcements)
+echo "Installing Labeled Section Transclusion extension..."
+if [ ! -d "$WIKI_DIR/extensions/LabeledSectionTransclusion" ]; then
+  cd "$WIKI_DIR/extensions"
+  git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/LabeledSectionTransclusion.git --branch REL1_41 --depth 1
+  chown -R www-data:www-data LabeledSectionTransclusion
+fi
+
 # Remove old ARCHIVE STYLING block if it exists (we'll add updated version)
 echo "Updating LocalSettings.php..."
 sed -i '/## ARCHIVE STYLING/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
@@ -45,7 +53,10 @@ $wgDefaultSkin = 'vector';
 $wgVectorDefaultSkinVersion = '1';
 
 # Use the same logo as live wiki
-$wgLogo = "$wgResourceBasePath/resources/assets/wiki.png";
+$wgLogo = $wgResourceBasePath . '/resources/assets/wiki.png';
+
+# Load Labeled Section Transclusion (for {{#section-h:}} in announcements)
+wfLoadExtension( 'LabeledSectionTransclusion' );
 
 # Hide login/account elements and add archive banner via CSS
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
