@@ -86,20 +86,13 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         /* Hide sitenotice (we use fixed banner instead) */
         #siteNotice { display: none !important; }
 
-        /* Fixed archive banner at top - must be above everything */
-        body { margin-top: 40px !important; }
-        #mw-page-base { top: 40px !important; }
-        #mw-head-base { top: 40px !important; }
-        #mw-head { top: 40px !important; }
-        #mw-panel { top: 200px !important; }
-        #p-logo { top: 45px !important; }
-
-        /* Break stacking context on navigation wrapper */
-        #mw-navigation { z-index: auto !important; }
-
-        /* Force all fixed/absolute elements below banner */
-        #mw-head, #mw-panel, #p-logo, .mw-logo,
-        #mw-page-base, #mw-head-base { z-index: 1 !important; }
+        /* NEGATIVE Z-INDEX APPROACH: Push ALL MW header elements BELOW default layer */
+        /* position: relative required for z-index to take effect on static elements */
+        #mw-page-base, #mw-head-base, #mw-head, #mw-panel,
+        #mw-navigation, #p-logo, .mw-logo {
+            position: relative !important;
+            z-index: -1 !important;
+        }
 
         #archive-banner {
             position: fixed;
@@ -112,7 +105,7 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             text-align: center;
             padding: 8px 20px;
             font-weight: bold;
-            z-index: 2147483647 !important;
+            z-index: 1 !important;
             font-size: 14px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
