@@ -72,6 +72,9 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #siteNotice { display: none !important; }
 
         /* Fixed archive banner at top */
+        #mw-page-base {
+            padding-top: 40px !important;
+        }
         body::before {
             content: "ARCHIVED SNAPSHOT of GSWiki • Visit gswiki.play.net for live wiki";
             display: block;
@@ -88,9 +91,6 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             z-index: 9999;
             font-size: 14px;
         }
-
-        /* Push page content down to account for fixed banner */
-        body { margin-top: 40px !important; }
     ');
     return true;
 };
