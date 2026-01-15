@@ -87,13 +87,17 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #siteNotice { display: none !important; }
 
         /* Fixed archive banner at top - must be above everything */
-        #mw-page-base { padding-top: 40px !important; }
-        #mw-head { top: 40px !important; z-index: 99 !important; }
-        #mw-head-base { margin-top: 40px !important; }
-        #mw-panel { margin-top: 40px !important; padding-top: 40px !important; }
-        #p-logo { top: 40px !important; }
-        .mw-logo { margin-top: 40px !important; }
-        #mw-navigation { margin-top: 40px !important; }
+        body { margin-top: 40px !important; }
+        #mw-page-base { top: 40px !important; }
+        #mw-head-base { top: 40px !important; }
+        #mw-head { top: 40px !important; }
+        #mw-panel { top: 200px !important; }
+        #p-logo { top: 45px !important; }
+
+        /* Force all fixed/absolute elements below banner */
+        #mw-navigation, #mw-head, #mw-panel, #p-logo, .mw-logo,
+        #mw-page-base, #mw-head-base { z-index: 100 !important; }
+
         #archive-banner {
             position: fixed;
             top: 0;
@@ -105,8 +109,9 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             text-align: center;
             padding: 8px 20px;
             font-weight: bold;
-            z-index: 9999999 !important;
+            z-index: 10000 !important;
             font-size: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         #archive-banner .archive-label { color: #e94560; }
         #archive-banner a { color: #7dd3fc; text-decoration: none; }
