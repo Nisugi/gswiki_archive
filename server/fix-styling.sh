@@ -65,6 +65,10 @@ $wgNamespaceAliases['Gswiki_talk'] = NS_PROJECT_TALK;
 # Load Labeled Section Transclusion (for {{#section-h:}} in announcements)
 wfLoadExtension( 'LabeledSectionTransclusion' );
 
+# Enable Semantic MediaWiki (for {{#ask:}} queries in announcements, etc.)
+wfLoadExtension( 'SemanticMediaWiki' );
+enableSemantics( 'gswiki-archive.gs-game.uk' );
+
 # Hide login/account elements and add archive banner
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     // Get archive date from marker file
