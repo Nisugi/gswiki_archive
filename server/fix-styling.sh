@@ -23,11 +23,60 @@ chown www-data:www-data "$WIKI_DIR/resources/assets/wiki.png"
 
 # Import styling pages from live wiki
 echo "Importing CSS and sidebar from live wiki..."
-for PAGE in "MediaWiki:Common.css" "MediaWiki:Vector.css" "MediaWiki:Common.js" "MediaWiki:Sidebar"; do
+for PAGE in "MediaWiki:Vector.css" "MediaWiki:Common.js" "MediaWiki:Sidebar"; do
   echo "  Importing $PAGE..."
   curl -s "https://gswiki.play.net/api.php?action=query&titles=$PAGE&export=1&exportnowrap=1&format=xml" > /tmp/page.xml
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
+
+# Create custom MediaWiki:Common.css with archive banner styles
+# This loads AFTER the skin styles, so z-index will work properly
+echo "Creating archive banner CSS (MediaWiki:Common.css)..."
+cat > /tmp/common-css.xml << 'CSSXML'
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
+  <page>
+    <title>MediaWiki:Common.css</title>
+    <ns>8</ns>
+    <revision>
+      <text bytes="1000" xml:space="preserve">/* GSWiki Archive - Custom styles that load AFTER skin */
+
+/* Push header elements below the banner */
+#mw-page-base, #mw-head-base, #mw-head, #mw-panel, #mw-navigation {
+    z-index: -1 !important;
+}
+
+/* Archive banner - fixed at top, above everything */
+#archive-banner {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9999 !important;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-bottom: 3px solid #e94560;
+    color: white;
+    text-align: center;
+    padding: 8px 20px;
+    font-weight: bold;
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+#archive-banner .archive-label { color: #e94560; }
+#archive-banner a { color: #7dd3fc; text-decoration: none; }
+#archive-banner a:hover { text-decoration: underline; }
+
+/* Push page content down to make room for banner */
+body { margin-top: 40px !important; }
+#mw-page-base { top: 40px !important; }
+#mw-head-base { top: 40px !important; }
+#mw-head { top: 40px !important; }
+#mw-panel { top: 200px !important; }
+</text>
+    </revision>
+  </page>
+</mediawiki>
+CSSXML
+php "$WIKI_DIR/maintenance/importDump.php" /tmp/common-css.xml 2>/dev/null
 
 # Install Labeled Section Transclusion extension (for {{#section-h:}} used in announcements)
 echo "Installing Labeled Section Transclusion extension..."
@@ -75,6 +124,7 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     $markerFile = '/var/www/gswiki-archive/.archive-date';
     $archiveDate = file_exists($markerFile) ? trim(file_get_contents($markerFile)) : date('M j, Y');
 
+    // Only hide login elements here - banner CSS is in MediaWiki:Common.css (loads after skin)
     $out->addInlineStyle('
         /* Hide login and account creation */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
@@ -85,52 +135,10 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
 
         /* Hide sitenotice (we use fixed banner instead) */
         #siteNotice { display: none !important; }
-
-        /* NEGATIVE Z-INDEX APPROACH: Push ALL MW header elements BELOW default layer */
-        /* position: relative required for z-index to take effect on static elements */
-        #mw-page-base, #mw-head-base, #mw-head, #mw-panel,
-        #mw-navigation, #p-logo, .mw-logo {
-            position: relative !important;
-            z-index: -1 !important;
-        }
-
-        #archive-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-bottom: 3px solid #e94560;
-            color: white;
-            text-align: center;
-            padding: 8px 20px;
-            font-weight: bold;
-            z-index: 1 !important;
-            font-size: 14px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-        #archive-banner .archive-label { color: #e94560; }
-        #archive-banner a { color: #7dd3fc; text-decoration: none; }
-        #archive-banner a:hover { text-decoration: underline; }
     ');
 
-    $out->prependHTML('<div id="archive-banner" style="position:fixed;top:0;left:0;right:0;z-index:2147483647;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-bottom:3px solid #e94560;color:white;text-align:center;padding:8px 20px;font-weight:bold;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,0.3);"><span style="color:#e94560;">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net" style="color:#7dd3fc;text-decoration:none;">View live wiki →</a></div>');
-
-    // Force banner above everything via JS after page load
-    $out->addInlineScript(\'
-        document.addEventListener("DOMContentLoaded", function() {
-            var banner = document.getElementById("archive-banner");
-            if (banner) {
-                banner.style.setProperty("z-index", "2147483647", "important");
-                banner.style.setProperty("position", "fixed", "important");
-            }
-            // Push MW elements down
-            ["mw-head", "mw-head-base", "mw-page-base", "mw-panel", "mw-navigation"].forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.style.setProperty("z-index", "-1", "important");
-            });
-        });
-    \');
+    // Inject banner HTML (styling comes from MediaWiki:Common.css)
+    $out->prependHTML('<div id="archive-banner"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
     return true;
 };
 SETTINGS
