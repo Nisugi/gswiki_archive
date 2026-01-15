@@ -110,10 +110,15 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     }
 
     $out->addInlineStyle('
-        /* Force logo display (ResourceLoader module missing) */
+        /* Force logo display */
         .mw-wiki-logo {
             background-image: url(/resources/assets/wiki.png) !important;
-            background-size: 135px 135px;
+            background-size: 135px 135px !important;
+            background-position: center center !important;
+            background-repeat: no-repeat !important;
+            display: block !important;
+            width: 10em !important;
+            height: 160px !important;
         }
 
         /* Hide login UI only - keep dark mode visible */
