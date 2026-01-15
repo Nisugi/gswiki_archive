@@ -90,44 +90,57 @@ enableSemantics( 'gswiki-archive.gs-game.uk' );
 $wgGroupPermissions['*']['createaccount'] = false;
 $wgHooks['AbortLogin'][] = function() { return false; };
 
-# Hide login UI and add archive notice in header
+# Hide login UI (but keep dark mode) and add full-width archive banner
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     $out->addInlineStyle('
-        /* Hide login and account creation UI */
+        /* Hide login UI only - keep dark mode visible */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
         #pt-preferences, #pt-watchlist, #pt-mycontris, #pt-mytalk,
-        #p-personal, .vector-user-links,
         #ca-viewsource, #ca-edit, #ca-history, #ca-watch, #ca-unwatch,
         .mw-editsection { display: none !important; }
 
-        /* Archive notice in header (where login used to be) */
-        #archive-header-notice {
-            position: absolute;
-            right: 1em;
-            top: 0.5em;
-            font-size: 0.85em;
+        /* Full-width archive banner at top */
+        #archive-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 28px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-bottom: 2px solid #e94560;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
             font-weight: bold;
+            z-index: 1000;
         }
-        #archive-header-notice .archive-label {
+        #archive-banner .archive-label {
             color: #e94560;
-            background: #1a1a2e;
-            padding: 2px 8px;
-            border-radius: 3px;
+            margin-right: 8px;
         }
-        #archive-header-notice a {
-            color: #3366cc;
-            margin-left: 0.5em;
+        #archive-banner a {
+            color: #7dd3fc;
+            text-decoration: none;
+            margin-left: 8px;
         }
+        #archive-banner a:hover { text-decoration: underline; }
+
+        /* Push page content down for banner */
+        body { margin-top: 30px !important; }
+        #mw-page-base, #mw-head-base { top: 30px !important; }
+        #mw-head { top: 30px !important; }
+        #mw-panel { top: 190px !important; }
     ');
 
-    // Inject archive notice into header via JS
+    // Inject full-width archive banner
     $out->addInlineScript('
         (function() {
-            var notice = document.createElement("div");
-            notice.id = "archive-header-notice";
-            notice.innerHTML = \'<span class="archive-label">ARCHIVED</span> <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
-            var header = document.getElementById("mw-head");
-            if (header) header.appendChild(notice);
+            var banner = document.createElement("div");
+            banner.id = "archive-banner";
+            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki \u2022 <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
+            document.body.insertBefore(banner, document.body.firstChild);
         })();
     ');
     return true;
