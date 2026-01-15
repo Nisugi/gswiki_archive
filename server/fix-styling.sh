@@ -62,6 +62,12 @@ $wgVectorDefaultSkinVersion = '1';
 # Use the same logo as live wiki
 $wgLogo = $wgResourceBasePath . '/resources/assets/wiki.png';
 
+# Namespace aliases for GSWiki project pages (needed for {{Gswiki:...}} transclusions)
+$wgNamespaceAliases['GSWiki'] = NS_PROJECT;
+$wgNamespaceAliases['GSWiki_talk'] = NS_PROJECT_TALK;
+$wgNamespaceAliases['Gswiki'] = NS_PROJECT;
+$wgNamespaceAliases['Gswiki_talk'] = NS_PROJECT_TALK;
+
 # Load Labeled Section Transclusion (for {{#section-h:}} in announcements)
 wfLoadExtension( 'LabeledSectionTransclusion' );
 
@@ -84,6 +90,7 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
 
         /* Fixed archive banner at top */
         #mw-page-base { padding-top: 40px !important; }
+        #mw-head { top: 40px !important; }
         #archive-banner {
             position: fixed;
             top: 0;
@@ -95,7 +102,7 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             text-align: center;
             padding: 8px 20px;
             font-weight: bold;
-            z-index: 9999;
+            z-index: 999999;
             font-size: 14px;
         }
         #archive-banner a { color: #7dd3fc; text-decoration: none; }
