@@ -73,6 +73,11 @@ $wgVectorDefaultSkinVersion = '1';
 # Use the same logo as live wiki (MW 1.41+ uses $wgLogos array)
 $wgLogos = [ '1x' => $wgResourceBasePath . '/resources/assets/wiki.png' ];
 
+# Enable image display (uploads still blocked by read-only mode)
+$wgEnableUploads = true;
+$wgUploadPath = "$wgScriptPath/images";
+$wgUploadDirectory = "$IP/images";
+
 # Namespace aliases for GSWiki project pages (needed for {{Gswiki:...}} transclusions)
 $wgNamespaceAliases['GSWiki'] = NS_PROJECT;
 $wgNamespaceAliases['GSWiki_talk'] = NS_PROJECT_TALK;
