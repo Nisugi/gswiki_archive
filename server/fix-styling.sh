@@ -72,7 +72,11 @@ $wgDefaultSkin = 'vector';
 $wgVectorDefaultSkinVersion = '1';
 
 # Use the same logo as live wiki (MW 1.41+ uses $wgLogos array)
-$wgLogos = [ '1x' => $wgResourceBasePath . '/resources/assets/wiki.png' ];
+# Use absolute path to avoid issues with $wgResourceBasePath being undefined
+$wgLogos = [
+    '1x' => '/resources/assets/wiki.png',
+    'icon' => '/resources/assets/wiki.png',
+];
 
 # Enable image display (uploads still blocked by read-only mode)
 $wgEnableUploads = true;
@@ -170,10 +174,23 @@ echo "Updating archive date..."
 date '+%b %d, %Y' > "$WIKI_DIR/.archive-date"
 chown www-data:www-data "$WIKI_DIR/.archive-date"
 
-# Clear caches
+# Clear caches (including ResourceLoader which handles logo CSS)
 echo "Clearing caches..."
 php "$WIKI_DIR/maintenance/rebuildLocalisationCache.php" --force 2>/dev/null || true
-rm -rf "$WIKI_DIR/cache/*" 2>/dev/null || true
+rm -rf "$WIKI_DIR/cache/"* 2>/dev/null || true
+
+# Clear ResourceLoader module info cache (critical for logo changes)
+echo "Clearing ResourceLoader cache..."
+php -r "
+\$IP = '$WIKI_DIR';
+require_once \"\$IP/maintenance/Maintenance.php\";
+" 2>/dev/null || true
+# Also delete the cache database entries if using file cache
+rm -rf "$WIKI_DIR/cache/l10n_cache/"* 2>/dev/null || true
+
+# Restart PHP-FPM to clear any opcache
+echo "Restarting PHP-FPM..."
+systemctl restart php*-fpm 2>/dev/null || true
 
 echo ""
 echo "=== Done! ==="
