@@ -1,30 +1,39 @@
 #!/bin/bash
 #
-# GSWiki Archive - MediaWiki Setup Script
+# Wiki Archive - MediaWiki Setup Script
 # Run as root on Ubuntu 22.04/24.04
 #
-# Usage: sudo bash setup-mediawiki.sh
+# Usage:
+#   source server/config/gswiki.conf && sudo bash server/setup-mediawiki.sh
+#   source server/config/elanthipedia.conf && sudo bash server/setup-mediawiki.sh
 #
 
 set -e
 
+# Check if config was sourced
+if [ -z "$WIKI_ID" ]; then
+    echo "ERROR: No wiki configuration loaded!"
+    echo ""
+    echo "Usage:"
+    echo "  source server/config/gswiki.conf && sudo bash server/setup-mediawiki.sh"
+    echo "  source server/config/elanthipedia.conf && sudo bash server/setup-mediawiki.sh"
+    exit 1
+fi
+
 echo "=========================================="
-echo "  GSWiki Archive - MediaWiki Setup"
+echo "  ${WIKI_NAME} Archive - MediaWiki Setup"
 echo "=========================================="
 
-# Configuration
-WIKI_DIR="/var/www/gswiki-archive"
-DB_NAME="gswiki_archive"
-DB_USER="gswiki"
+# Configuration (from sourced config file)
+# WIKI_DIR, DB_NAME, DB_USER come from config
 DB_PASS=$(openssl rand -base64 16)
 MEDIAWIKI_VERSION="1.41.1"
-SERVER_NAME="${1:-$(hostname -I | awk '{print $1}')}"
 
 echo ""
 echo "Configuration:"
 echo "  Install directory: $WIKI_DIR"
 echo "  Database: $DB_NAME"
-echo "  Server: http://gswiki-archive.gs-game.uk"
+echo "  Server: http://${ARCHIVE_DOMAIN}"
 echo ""
 read -p "Continue? [y/N] " -n 1 -r
 echo
@@ -70,11 +79,11 @@ mysql -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
 mysql -e "FLUSH PRIVILEGES;"
 
 # Save credentials
-echo "DB_NAME=$DB_NAME" > /root/.gswiki-db-credentials
-echo "DB_USER=$DB_USER" >> /root/.gswiki-db-credentials
-echo "DB_PASS=$DB_PASS" >> /root/.gswiki-db-credentials
-chmod 600 /root/.gswiki-db-credentials
-echo "  Database credentials saved to /root/.gswiki-db-credentials"
+echo "DB_NAME=$DB_NAME" > /root/.${WIKI_ID}-db-credentials
+echo "DB_USER=$DB_USER" >> /root/.${WIKI_ID}-db-credentials
+echo "DB_PASS=$DB_PASS" >> /root/.${WIKI_ID}-db-credentials
+chmod 600 /root/.${WIKI_ID}-db-credentials
+echo "  Database credentials saved to /root/.${WIKI_ID}-db-credentials"
 
 # Download MediaWiki
 echo ""
@@ -91,10 +100,10 @@ chown -R www-data:www-data "$WIKI_DIR"
 # Configure Nginx
 echo ""
 echo "[5/7] Configuring Nginx..."
-cat > /etc/nginx/sites-available/gswiki-archive << NGINX
+cat > /etc/nginx/sites-available/${WIKI_ID}-archive << NGINX
 server {
     listen 80;
-    server_name gswiki-archive.gs-game.uk;
+    server_name ${ARCHIVE_DOMAIN};
     root $WIKI_DIR;
     index index.php;
 
@@ -131,7 +140,7 @@ server {
 }
 NGINX
 
-ln -sf /etc/nginx/sites-available/gswiki-archive /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/${WIKI_ID}-archive /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
 # Run MediaWiki installer
@@ -146,51 +155,51 @@ php maintenance/install.php \
     --lang="en" \
     --pass="ArchiveAdmin123!" \
     --scriptpath="" \
-    --server="http://gswiki-archive.gs-game.uk" \
-    "GSWiki Archive" \
+    --server="http://${ARCHIVE_DOMAIN}" \
+    "${WIKI_NAME} Archive" \
     "Admin"
 
 # Configure as read-only archive
 echo ""
 echo "[7/7] Configuring as read-only archive..."
-cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
+cat >> "$WIKI_DIR/LocalSettings.php" << SETTINGS
 
 ## ================================================
-## GSWiki Archive - Read-Only Configuration
+## ${WIKI_NAME} Archive - Read-Only Configuration
 ## ================================================
 
 # Make wiki read-only
-$wgReadOnly = "This is a read-only archive of GSWiki. Visit https://gswiki.play.net for the live wiki.";
+\$wgReadOnly = "This is a read-only archive of ${WIKI_NAME}. Visit ${SOURCE_WIKI} for the live wiki.";
 
 # Disable account creation
-$wgGroupPermissions['*']['createaccount'] = false;
+\$wgGroupPermissions['*']['createaccount'] = false;
 
 # Disable editing for everyone
-$wgGroupPermissions['*']['edit'] = false;
-$wgGroupPermissions['user']['edit'] = false;
-$wgGroupPermissions['sysop']['edit'] = false;
+\$wgGroupPermissions['*']['edit'] = false;
+\$wgGroupPermissions['user']['edit'] = false;
+\$wgGroupPermissions['sysop']['edit'] = false;
 
 # Disable uploads
-$wgEnableUploads = false;
+\$wgEnableUploads = false;
 
 # Site branding
-$wgSitename = "GSWiki Archive";
-$wgMetaNamespace = "GSWiki_Archive";
+\$wgSitename = "${WIKI_NAME} Archive";
+\$wgMetaNamespace = "${WIKI_NAME}_Archive";
 
 # Performance
-$wgMainCacheType = CACHE_ACCEL;
-$wgCacheDirectory = "$IP/cache";
-$wgUseFileCache = true;
-$wgFileCacheDirectory = "$IP/cache";
+\$wgMainCacheType = CACHE_ACCEL;
+\$wgCacheDirectory = "\$IP/cache";
+\$wgUseFileCache = true;
+\$wgFileCacheDirectory = "\$IP/cache";
 
 # Logo (we'll update this later)
-# $wgLogo = "$wgResourceBasePath/resources/assets/archive-logo.png";
+# \$wgLogo = "\$wgResourceBasePath/resources/assets/archive-logo.png";
 
 # Footer
-$wgFooterIcons['poweredby']['gswiki'] = [
+\$wgFooterIcons['poweredby']['${WIKI_ID}'] = [
     "src" => "",
-    "url" => "https://gswiki.play.net",
-    "alt" => "Archived from GSWiki"
+    "url" => "${SOURCE_WIKI}",
+    "alt" => "Archived from ${WIKI_NAME}"
 ];
 
 # Site notice will be created via fix-sitenotice.sh after install
@@ -205,18 +214,18 @@ echo "=========================================="
 echo "  Setup Complete!"
 echo "=========================================="
 echo ""
-echo "MediaWiki installed at: http://gswiki-archive.gs-game.uk"
+echo "MediaWiki installed at: http://${ARCHIVE_DOMAIN}"
 echo ""
 echo "Admin login:"
 echo "  Username: Admin"
 echo "  Password: ArchiveAdmin123!"
 echo "  (Change this password immediately!)"
 echo ""
-echo "Database credentials: /root/.gswiki-db-credentials"
+echo "Database credentials: /root/.${WIKI_ID}-db-credentials"
 echo ""
 echo "Next steps:"
-echo "  1. Visit http://gswiki-archive.gs-game.uk to verify it works"
+echo "  1. Visit http://${ARCHIVE_DOMAIN} to verify it works"
 echo "  2. Change the admin password"
-echo "  3. Run: bash fix-sitenotice.sh (creates archive banner)"
-echo "  4. Run: python3 import-content.py --full (imports wiki content)"
+echo "  3. Run: source server/config/${WIKI_ID}.conf && bash server/fix-styling.sh"
+echo "  4. Run: python3 server/import-content.py --wiki ${WIKI_ID} --full"
 echo ""

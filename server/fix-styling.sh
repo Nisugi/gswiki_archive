@@ -1,15 +1,29 @@
 #!/bin/bash
 #
-# GSWiki Archive - Fix Styling Script
+# Wiki Archive - Fix Styling Script
 # Makes the archive look exactly like the live wiki
 # Run as root on the VPS
+#
+# Usage:
+#   source server/config/gswiki.conf && sudo bash server/fix-styling.sh
+#   source server/config/elanthipedia.conf && sudo bash server/fix-styling.sh
 #
 
 set -e
 
-WIKI_DIR="/var/www/gswiki-archive"
+# Check if config was sourced
+if [ -z "$WIKI_ID" ]; then
+    echo "ERROR: No wiki configuration loaded!"
+    echo ""
+    echo "Usage:"
+    echo "  source server/config/gswiki.conf && sudo bash server/fix-styling.sh"
+    echo "  source server/config/elanthipedia.conf && sudo bash server/fix-styling.sh"
+    exit 1
+fi
 
-echo "=== Fixing GSWiki Archive Styling ==="
+# WIKI_DIR comes from config
+
+echo "=== Fixing ${WIKI_NAME} Archive Styling ==="
 
 # Permanently disable $wgReadOnly (it blocks thumbnail generation)
 # Wiki is protected via permissions instead
@@ -19,14 +33,14 @@ sed -i 's/^\$wgReadOnly/# $wgReadOnly/' "$WIKI_DIR/LocalSettings.php"
 # Download the logo
 echo "Downloading wiki logo..."
 mkdir -p "$WIKI_DIR/resources/assets"
-curl -s -o "$WIKI_DIR/resources/assets/wiki.png" "https://gswiki.play.net/resources/assets/wiki.png"
+curl -s -o "$WIKI_DIR/resources/assets/wiki.png" "${SOURCE_WIKI}/resources/assets/wiki.png"
 chown www-data:www-data "$WIKI_DIR/resources/assets/wiki.png"
 
 # Import styling pages from live wiki
 echo "Importing CSS and sidebar from live wiki..."
 for PAGE in "MediaWiki:Vector.css" "MediaWiki:Common.js" "MediaWiki:Sidebar"; do
   echo "  Importing $PAGE..."
-  curl -s "https://gswiki.play.net/api.php?action=query&titles=$PAGE&export=1&exportnowrap=1&format=xml" > /tmp/page.xml
+  curl -s "${SOURCE_API}?action=query&titles=$PAGE&export=1&exportnowrap=1&format=xml" > /tmp/page.xml
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
 
@@ -60,56 +74,61 @@ if grep -q "## ARCHIVE STYLING - Match live wiki" "$WIKI_DIR/LocalSettings.php";
   echo "Archive styling block already exists, skipping..."
 else
   echo "Adding archive styling block..."
+
+  # Build namespace aliases PHP code dynamically
+  NS_ALIASES=""
+  for alias in "${PROJECT_NAMESPACE_ALIASES[@]}"; do
+    NS_ALIASES="${NS_ALIASES}\$wgNamespaceAliases['${alias}'] = NS_PROJECT;\n"
+    NS_ALIASES="${NS_ALIASES}\$wgNamespaceAliases['${alias}_talk'] = NS_PROJECT_TALK;\n"
+  done
+
   # Add archive customizations to LocalSettings.php
-  cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
+  cat >> "$WIKI_DIR/LocalSettings.php" << SETTINGS
 
 ## ================================================
 ## ARCHIVE STYLING - Match live wiki appearance
 ## ================================================
 
 # Use legacy Vector skin (with permanent sidebar, not collapsible)
-$wgDefaultSkin = 'vector';
-$wgVectorDefaultSkinVersion = '1';
+\$wgDefaultSkin = 'vector';
+\$wgVectorDefaultSkinVersion = '1';
 
-# Use the same logo as live wiki (MW 1.41+ uses $wgLogos array)
-# Use absolute path to avoid issues with $wgResourceBasePath being undefined
-$wgLogos = [
+# Use the same logo as live wiki (MW 1.41+ uses \$wgLogos array)
+# Use absolute path to avoid issues with \$wgResourceBasePath being undefined
+\$wgLogos = [
     '1x' => '/resources/assets/wiki.png',
     'icon' => '/resources/assets/wiki.png',
 ];
 
 # Enable image display (uploads still blocked by read-only mode)
-$wgEnableUploads = true;
-$wgUploadPath = "$wgScriptPath/images";
-$wgUploadDirectory = "$IP/images";
+\$wgEnableUploads = true;
+\$wgUploadPath = "\$wgScriptPath/images";
+\$wgUploadDirectory = "\$IP/images";
 
-# Namespace aliases for GSWiki project pages (needed for {{Gswiki:...}} transclusions)
-$wgNamespaceAliases['GSWiki'] = NS_PROJECT;
-$wgNamespaceAliases['GSWiki_talk'] = NS_PROJECT_TALK;
-$wgNamespaceAliases['Gswiki'] = NS_PROJECT;
-$wgNamespaceAliases['Gswiki_talk'] = NS_PROJECT_TALK;
+# Namespace aliases for ${WIKI_NAME} project pages (needed for {{${WIKI_NAME}:...}} transclusions)
+$(echo -e "$NS_ALIASES")
 
 # Load Labeled Section Transclusion (for {{#section-h:}} in announcements)
 wfLoadExtension( 'LabeledSectionTransclusion' );
 
 # Enable Semantic MediaWiki (for {{#ask:}} queries in announcements, etc.)
 wfLoadExtension( 'SemanticMediaWiki' );
-enableSemantics( 'gswiki-archive.gs-game.uk' );
+enableSemantics( '${ARCHIVE_DOMAIN}' );
 
 # Disable account creation and login
-$wgGroupPermissions['*']['createaccount'] = false;
-$wgHooks['AbortLogin'][] = function() { return false; };
+\$wgGroupPermissions['*']['createaccount'] = false;
+\$wgHooks['AbortLogin'][] = function() { return false; };
 
 # Hide login UI (but keep dark mode) and add full-width archive banner
-$wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
-    global $IP;
-    $archiveDate = 'Unknown';
-    $dateFile = "$IP/.archive-date";
-    if ( file_exists( $dateFile ) ) {
-        $archiveDate = trim( file_get_contents( $dateFile ) );
+\$wgHooks['BeforePageDisplay'][] = function ( OutputPage &\$out, Skin &\$skin ) {
+    global \$IP;
+    \$archiveDate = 'Unknown';
+    \$dateFile = "\$IP/.archive-date";
+    if ( file_exists( \$dateFile ) ) {
+        \$archiveDate = trim( file_get_contents( \$dateFile ) );
     }
 
-    $out->addInlineStyle('
+    \$out->addInlineStyle('
         /* Force logo display */
         .mw-wiki-logo {
             background-image: url(/resources/assets/wiki.png) !important;
@@ -167,11 +186,11 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     ');
 
     // Inject full-width archive banner with date
-    $out->addInlineScript('
+    \$out->addInlineScript('
         (function() {
             var banner = document.createElement("div");
             banner.id = "archive-banner";
-            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span><span class="archive-date">(' . htmlspecialchars( $archiveDate ) . ')</span> of GSWiki \u2022 <a href="https://gswiki.play.net">View live wiki \u2192</a>\';
+            banner.innerHTML = '"'"'<span class="archive-label">ARCHIVED SNAPSHOT</span><span class="archive-date">(' . htmlspecialchars( \$archiveDate ) . ')</span> of ${WIKI_NAME} \\u2022 <a href="${SOURCE_WIKI}">View live wiki \\u2192</a>'"'"';
             document.body.insertBefore(banner, document.body.firstChild);
         })();
     ');
@@ -208,4 +227,4 @@ echo "=== Done! ==="
 echo "Refresh the page (Ctrl+Shift+R to bypass cache) to see changes."
 echo ""
 echo "NOTE: Images still need to be imported separately:"
-echo "  python3 /root/gswiki_archive/server/import-content.py --images"
+echo "  python3 /root/gswiki_archive/server/import-content.py --wiki ${WIKI_ID} --images"

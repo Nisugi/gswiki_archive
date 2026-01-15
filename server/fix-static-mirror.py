@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
 """
-GSWiki Static Mirror - Post-Processing Fix
+Wiki Static Mirror - Post-Processing Fix
 Fixes CSS references and layout issues in wget-mirrored wiki pages.
 
 Usage:
-    python fix-static-mirror.py <mirror_directory>
+    python fix-static-mirror.py <mirror_directory> [--wiki-name NAME] [--live-url URL]
 
-Example:
-    python fix-static-mirror.py C:\Gemstone\dev\gswiki-static-2026-01-15
+Examples:
+    python fix-static-mirror.py ./gswiki-static-2026-01-15 --wiki-name "GSWiki" --live-url "https://gswiki.play.net"
+    python fix-static-mirror.py ./elanthipedia-static-2026-01-15 --wiki-name "Elanthipedia" --live-url "https://elanthipedia.play.net"
 """
 
+import argparse
 import os
 import re
 import sys
 from pathlib import Path
 
+# Default values (can be overridden via command line)
+DEFAULT_WIKI_NAME = "GSWiki"
+DEFAULT_LIVE_URL = "https://gswiki.play.net"
+
 # Minimal CSS to make the wiki look right offline
-OFFLINE_CSS = """
+# Use WIKI_NAME_PLACEHOLDER which will be replaced at runtime
+OFFLINE_CSS_TEMPLATE = """
 <style>
-/* GSWiki Offline Mirror - Layout Fix */
+/* WIKI_NAME_PLACEHOLDER Offline Mirror - Layout Fix */
 body {
     margin: 0;
     padding: 0;
@@ -243,18 +250,33 @@ body.has-archive-notice #mw-panel {
 </style>
 """
 
-# Archive banner HTML
-ARCHIVE_BANNER = """
+# Archive banner HTML template
+# Uses WIKI_NAME_PLACEHOLDER and LIVE_URL_PLACEHOLDER which will be replaced at runtime
+ARCHIVE_BANNER_TEMPLATE = """
 <div id="archive-notice">
     <strong style="color: #e94560;">OFFLINE ARCHIVE</strong> -
-    Static snapshot of GSWiki for offline viewing
-    <a href="https://gswiki.play.net" target="_blank">View live wiki &rarr;</a>
+    Static snapshot of WIKI_NAME_PLACEHOLDER for offline viewing
+    <a href="LIVE_URL_PLACEHOLDER" target="_blank">View live wiki &rarr;</a>
 </div>
 <script>document.body.classList.add('has-archive-notice');</script>
 """
 
 
-def fix_html_file(filepath):
+def get_offline_css(wiki_name):
+    """Generate CSS with the wiki name."""
+    return OFFLINE_CSS_TEMPLATE.replace("WIKI_NAME_PLACEHOLDER", wiki_name)
+
+
+def get_archive_banner(wiki_name, live_url):
+    """Generate archive banner with wiki name and live URL."""
+    return ARCHIVE_BANNER_TEMPLATE.replace(
+        "WIKI_NAME_PLACEHOLDER", wiki_name
+    ).replace(
+        "LIVE_URL_PLACEHOLDER", live_url
+    )
+
+
+def fix_html_file(filepath, wiki_name, live_url):
     """Fix CSS references and layout in a single HTML file."""
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -279,16 +301,20 @@ def fix_html_file(filepath):
         content
     )
 
+    # Get CSS and banner with wiki-specific values
+    offline_css = get_offline_css(wiki_name)
+    archive_banner = get_archive_banner(wiki_name, live_url)
+
     # Inject our CSS after <head>
     if '<head>' in content:
-        content = content.replace('<head>', '<head>' + OFFLINE_CSS, 1)
+        content = content.replace('<head>', '<head>' + offline_css, 1)
     elif '<HEAD>' in content:
-        content = content.replace('<HEAD>', '<HEAD>' + OFFLINE_CSS, 1)
+        content = content.replace('<HEAD>', '<HEAD>' + offline_css, 1)
 
     # Add archive banner after <body...>
     content = re.sub(
         r'(<body[^>]*>)',
-        r'\1' + ARCHIVE_BANNER,
+        r'\1' + archive_banner,
         content,
         count=1
     )
@@ -323,18 +349,36 @@ def fix_html_file(filepath):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python fix-static-mirror.py <mirror_directory>")
-        print("Example: python fix-static-mirror.py ./gswiki-static-2026-01-15")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Fix CSS references and layout in wget-mirrored wiki pages"
+    )
+    parser.add_argument(
+        "mirror_directory",
+        help="Path to the mirror directory containing HTML files"
+    )
+    parser.add_argument(
+        "--wiki-name",
+        default=DEFAULT_WIKI_NAME,
+        help=f"Name of the wiki (default: {DEFAULT_WIKI_NAME})"
+    )
+    parser.add_argument(
+        "--live-url",
+        default=DEFAULT_LIVE_URL,
+        help=f"URL of the live wiki (default: {DEFAULT_LIVE_URL})"
+    )
+    args = parser.parse_args()
 
-    mirror_dir = Path(sys.argv[1])
+    mirror_dir = Path(args.mirror_directory)
+    wiki_name = args.wiki_name
+    live_url = args.live_url
 
     if not mirror_dir.exists():
         print(f"Error: Directory '{mirror_dir}' does not exist")
         sys.exit(1)
 
     print(f"Fixing static mirror in: {mirror_dir}")
+    print(f"  Wiki name: {wiki_name}")
+    print(f"  Live URL: {live_url}")
     print()
 
     # Find all HTML files
@@ -343,7 +387,7 @@ def main():
 
     fixed = 0
     for i, filepath in enumerate(html_files):
-        if fix_html_file(filepath):
+        if fix_html_file(filepath, wiki_name, live_url):
             fixed += 1
 
         # Progress indicator

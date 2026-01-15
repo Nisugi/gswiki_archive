@@ -1,24 +1,33 @@
 #!/bin/bash
 #
-# GSWiki Archive - Static Mirror Creator
-# Creates a downloadable static HTML snapshot of GSWiki
+# Wiki Archive - Static Mirror Creator
+# Creates a downloadable static HTML snapshot of a wiki
 #
 # Usage:
-#   bash create-static-mirror.sh           # Full mirror
-#   bash create-static-mirror.sh --quick   # Quick test (limited pages)
+#   source server/config/gswiki.conf && bash server/create-static-mirror.sh
+#   source server/config/gswiki.conf && bash server/create-static-mirror.sh --quick
 #
-# Output: /var/www/gswiki-archive/downloads/gswiki-static-YYYY-MM-DD.tar.gz
+# Output: /var/www/{wiki}-archive/downloads/{wiki}-static-YYYY-MM-DD.tar.gz
 #
 
 set -e
 
-# Configuration
-SOURCE_WIKI="https://gswiki.play.net"
-WORK_DIR="/tmp/gswiki-mirror"
-OUTPUT_DIR="/var/www/gswiki-archive/downloads"
+# Check if config was sourced
+if [ -z "$WIKI_ID" ]; then
+    echo "ERROR: No wiki configuration loaded!"
+    echo ""
+    echo "Usage:"
+    echo "  source server/config/gswiki.conf && bash server/create-static-mirror.sh"
+    echo "  source server/config/elanthipedia.conf && bash server/create-static-mirror.sh"
+    exit 1
+fi
+
+# Configuration (from sourced config file)
+# SOURCE_WIKI, WIKI_DIR, STATIC_PREFIX, KEEP_ARCHIVES come from config
+WORK_DIR="/tmp/${WIKI_ID}-mirror"
+OUTPUT_DIR="${DOWNLOADS_DIR:-${WIKI_DIR}/downloads}"
 DATE=$(date '+%Y-%m-%d')
-ARCHIVE_NAME="gswiki-static-${DATE}"
-KEEP_ARCHIVES=2  # Keep current + 1 backup
+ARCHIVE_NAME="${STATIC_PREFIX}-${DATE}"
 DELAY=1          # Seconds between requests (be polite)
 
 # Parse arguments
@@ -29,7 +38,7 @@ if [ "$1" = "--quick" ]; then
 fi
 
 echo "=========================================="
-echo "  GSWiki Static Mirror Creator"
+echo "  ${WIKI_NAME} Static Mirror Creator"
 echo "=========================================="
 echo ""
 echo "Source: $SOURCE_WIKI"
@@ -56,7 +65,7 @@ WGET_OPTS=(
     --wait="$DELAY"
     --random-wait
     --limit-rate=500k
-    --user-agent="GSWiki-Archiver/1.0 (archival purposes)"
+    --user-agent="${WIKI_NAME}-Archiver/1.0 (archival purposes)"
     --reject="Special:*,action=*,oldid=*,diff=*,printable=*"
     --reject-regex="(Special:|action=|oldid=|diff=|printable=|index\.php\?)"
     --directory-prefix="$WORK_DIR/$ARCHIVE_NAME"
@@ -98,7 +107,7 @@ echo "[3/5] Fixing HTML for offline viewing..."
 
 # Run the Python fix script to embed CSS and fix links
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "$SCRIPT_DIR/fix-static-mirror.py" "$WORK_DIR/$ARCHIVE_NAME" 2>&1 | tail -5
+python3 "$SCRIPT_DIR/fix-static-mirror.py" "$WORK_DIR/$ARCHIVE_NAME" --wiki-name "${WIKI_NAME}" --live-url "${SOURCE_WIKI}" 2>&1 | tail -5
 
 echo ""
 echo "[4/5] Creating archive..."
@@ -126,16 +135,16 @@ echo "[5/5] Cleaning up old archives..."
 
 # Keep only the last N archives
 cd "$OUTPUT_DIR"
-ls -t gswiki-static-*.tar.gz 2>/dev/null | tail -n +$((KEEP_ARCHIVES + 1)) | xargs -r rm -f
+ls -t ${STATIC_PREFIX}-*.tar.gz 2>/dev/null | tail -n +$((KEEP_ARCHIVES + 1)) | xargs -r rm -f
 
 # List current archives
 echo "  Current archives:"
-ls -lh gswiki-static-*.tar.gz 2>/dev/null | awk '{print "    " $9 " (" $5 ")"}'
+ls -lh ${STATIC_PREFIX}-*.tar.gz 2>/dev/null | awk '{print "    " $9 " (" $5 ")"}'
 
 # Keep work directory for debugging/re-processing (cleaned on next run)
 # To manually re-process after fixing scripts:
-#   python3 server/fix-static-mirror.py /tmp/gswiki-mirror/gswiki-static-YYYY-MM-DD
-#   cd /tmp/gswiki-mirror && tar -czf /var/www/gswiki-archive/downloads/gswiki-static-YYYY-MM-DD.tar.gz gswiki-static-YYYY-MM-DD
+#   python3 server/fix-static-mirror.py /tmp/${WIKI_ID}-mirror/${STATIC_PREFIX}-YYYY-MM-DD --wiki-name "..." --live-url "..."
+#   cd /tmp/${WIKI_ID}-mirror && tar -czf ${WIKI_DIR}/downloads/${STATIC_PREFIX}-YYYY-MM-DD.tar.gz ${STATIC_PREFIX}-YYYY-MM-DD
 echo "  Work files kept at: $WORK_DIR/$ARCHIVE_NAME"
 
 echo ""
@@ -143,9 +152,9 @@ echo "=========================================="
 echo "  Done!"
 echo "=========================================="
 echo ""
-echo "Download URL: https://gswiki-archive.gs-game.uk/downloads/$ARCHIVE_NAME.tar.gz"
-echo "Latest URL:   https://gswiki-archive.gs-game.uk/downloads/latest.tar.gz"
+echo "Download URL: https://${ARCHIVE_DOMAIN}/downloads/$ARCHIVE_NAME.tar.gz"
+echo "Latest URL:   https://${ARCHIVE_DOMAIN}/downloads/latest.tar.gz"
 echo ""
 echo "To extract: tar -xzf $ARCHIVE_NAME.tar.gz"
-echo "Then open:  $ARCHIVE_NAME/Main_Page.html"
+echo "Then open:  $ARCHIVE_NAME/${STATIC_MAIN_PAGE}.html"
 echo ""
