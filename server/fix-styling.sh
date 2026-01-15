@@ -38,14 +38,9 @@ cat > /tmp/common-css.xml << 'CSSXML'
     <title>MediaWiki:Common.css</title>
     <ns>8</ns>
     <revision>
-      <text bytes="1000" xml:space="preserve">/* GSWiki Archive - Custom styles that load AFTER skin */
+      <text bytes="1200" xml:space="preserve">/* GSWiki Archive - Custom styles that load AFTER skin */
 
-/* Push header elements below the banner */
-#mw-page-base, #mw-head-base, #mw-head, #mw-panel, #mw-navigation {
-    z-index: -1 !important;
-}
-
-/* Archive banner - fixed at top, above everything */
+/* Archive banner - fixed at top, HIGHEST z-index */
 #archive-banner {
     position: fixed !important;
     top: 0 !important;
@@ -64,6 +59,11 @@ cat > /tmp/common-css.xml << 'CSSXML'
 #archive-banner .archive-label { color: #e94560; }
 #archive-banner a { color: #7dd3fc; text-decoration: none; }
 #archive-banner a:hover { text-decoration: underline; }
+
+/* Header elements - visible but BELOW banner */
+#mw-page-base, #mw-head-base, #mw-head, #mw-panel, #mw-navigation {
+    z-index: 100 !important;
+}
 
 /* Push page content down to make room for banner */
 body { margin-top: 40px !important; }
