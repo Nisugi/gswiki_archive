@@ -29,54 +29,50 @@ for PAGE in "MediaWiki:Vector.css" "MediaWiki:Common.js" "MediaWiki:Sidebar"; do
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
 
-# Create custom MediaWiki:Common.css with archive banner styles
-# This loads AFTER the skin styles, so z-index will work properly
-echo "Creating archive banner CSS (MediaWiki:Common.css)..."
+# Create custom MediaWiki:Common.css with siteNotice styles
+echo "Creating archive siteNotice CSS (MediaWiki:Common.css)..."
 cat > /tmp/common-css.xml << 'CSSXML'
 <mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
   <page>
     <title>MediaWiki:Common.css</title>
     <ns>8</ns>
     <revision>
-      <text bytes="1200" xml:space="preserve">/* GSWiki Archive - Custom styles that load AFTER skin */
-
-/* Archive banner - fixed at top, HIGHEST z-index */
-#archive-banner {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 9999 !important;
+      <text bytes="600" xml:space="preserve">/* GSWiki Archive - SiteNotice styling */
+#siteNotice {
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: none;
     border-bottom: 3px solid #e94560;
     color: white;
     text-align: center;
-    padding: 8px 20px;
+    padding: 12px 20px;
     font-weight: bold;
     font-size: 14px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    margin-bottom: 1em;
 }
-#archive-banner .archive-label { color: #e94560; }
-#archive-banner a { color: #7dd3fc; text-decoration: none; }
-#archive-banner a:hover { text-decoration: underline; }
-
-/* Header elements - visible but BELOW banner */
-#mw-page-base, #mw-head-base, #mw-head, #mw-panel, #mw-navigation {
-    z-index: 100 !important;
-}
-
-/* Push page content down to make room for banner */
-body { margin-top: 40px !important; }
-#mw-page-base { top: 40px !important; }
-#mw-head-base { top: 40px !important; }
-#mw-head { top: 40px !important; }
-#mw-panel { top: 200px !important; }
+#siteNotice .archive-label { color: #e94560; }
+#siteNotice a { color: #7dd3fc; text-decoration: none; }
+#siteNotice a:hover { text-decoration: underline; }
 </text>
     </revision>
   </page>
 </mediawiki>
 CSSXML
 php "$WIKI_DIR/maintenance/importDump.php" /tmp/common-css.xml 2>/dev/null
+
+# Create MediaWiki:Sitenotice with archive message
+echo "Creating archive siteNotice content..."
+cat > /tmp/sitenotice.xml << 'NOTICEXML'
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/">
+  <page>
+    <title>MediaWiki:Sitenotice</title>
+    <ns>8</ns>
+    <revision>
+      <text bytes="200" xml:space="preserve"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki • For the live wiki, visit <a href="https://gswiki.play.net">gswiki.play.net</a></text>
+    </revision>
+  </page>
+</mediawiki>
+NOTICEXML
+php "$WIKI_DIR/maintenance/importDump.php" /tmp/sitenotice.xml 2>/dev/null
 
 # Install Labeled Section Transclusion extension (for {{#section-h:}} used in announcements)
 echo "Installing Labeled Section Transclusion extension..."
@@ -102,8 +98,8 @@ else
 $wgDefaultSkin = 'vector';
 $wgVectorDefaultSkinVersion = '1';
 
-# Use the same logo as live wiki
-$wgLogo = $wgResourceBasePath . '/resources/assets/wiki.png';
+# Use the same logo as live wiki (MW 1.41+ uses $wgLogos array)
+$wgLogos = [ '1x' => $wgResourceBasePath . '/resources/assets/wiki.png' ];
 
 # Namespace aliases for GSWiki project pages (needed for {{Gswiki:...}} transclusions)
 $wgNamespaceAliases['GSWiki'] = NS_PROJECT;
@@ -118,33 +114,19 @@ wfLoadExtension( 'LabeledSectionTransclusion' );
 wfLoadExtension( 'SemanticMediaWiki' );
 enableSemantics( 'gswiki-archive.gs-game.uk' );
 
-# Hide login/account elements and add archive banner
-$wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
-    // Get archive date from marker file
-    $markerFile = '/var/www/gswiki-archive/.archive-date';
-    $archiveDate = file_exists($markerFile) ? trim(file_get_contents($markerFile)) : date('M j, Y');
+# Disable account creation and login
+$wgGroupPermissions['*']['createaccount'] = false;
+$wgHooks['AbortLogin'][] = function() { return false; };
 
-    // Only hide login elements here - banner CSS is in MediaWiki:Common.css (loads after skin)
+# Hide login/account UI elements (they're disabled, but hide the UI too)
+$wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     $out->addInlineStyle('
-        /* Hide login and account creation */
+        /* Hide login and account creation UI */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
         #pt-preferences, #pt-watchlist, #pt-mycontris, #pt-mytalk,
         #p-personal, .vector-user-links,
         #ca-viewsource, #ca-edit, #ca-history, #ca-watch, #ca-unwatch,
         .mw-editsection { display: none !important; }
-
-        /* Hide sitenotice (we use fixed banner instead) */
-        #siteNotice { display: none !important; }
-    ');
-
-    // Inject banner as first child of body (same stacking context as mw-head)
-    $out->addInlineScript('
-        (function() {
-            var banner = document.createElement("div");
-            banner.id = "archive-banner";
-            banner.innerHTML = \'<span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a>\';
-            document.body.insertBefore(banner, document.body.firstChild);
-        })();
     ');
     return true;
 };
