@@ -114,7 +114,23 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
         #archive-banner a:hover { text-decoration: underline; }
     ');
 
-    $out->prependHTML('<div id="archive-banner"><span class="archive-label">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net">View live wiki →</a></div>');
+    $out->prependHTML('<div id="archive-banner" style="position:fixed;top:0;left:0;right:0;z-index:2147483647;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-bottom:3px solid #e94560;color:white;text-align:center;padding:8px 20px;font-weight:bold;font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,0.3);"><span style="color:#e94560;">ARCHIVED SNAPSHOT</span> of GSWiki (' . htmlspecialchars($archiveDate) . ') • <a href="https://gswiki.play.net" style="color:#7dd3fc;text-decoration:none;">View live wiki →</a></div>');
+
+    // Force banner above everything via JS after page load
+    $out->addInlineScript(\'
+        document.addEventListener("DOMContentLoaded", function() {
+            var banner = document.getElementById("archive-banner");
+            if (banner) {
+                banner.style.setProperty("z-index", "2147483647", "important");
+                banner.style.setProperty("position", "fixed", "important");
+            }
+            // Push MW elements down
+            ["mw-head", "mw-head-base", "mw-page-base", "mw-panel", "mw-navigation"].forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.style.setProperty("z-index", "-1", "important");
+            });
+        });
+    \');
     return true;
 };
 SETTINGS
