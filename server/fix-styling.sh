@@ -17,7 +17,9 @@ sed -i 's/^\$wgReadOnly/# $wgReadOnly/' "$WIKI_DIR/LocalSettings.php"
 
 # Download the logo
 echo "Downloading wiki logo..."
-curl -s -o "$WIKI_DIR/resources/assets/wiki-logo.png" "https://gswiki.play.net/resources/assets/wiki.png"
+mkdir -p "$WIKI_DIR/resources/assets"
+curl -s -o "$WIKI_DIR/resources/assets/wiki.png" "https://gswiki.play.net/resources/assets/wiki.png"
+chown www-data:www-data "$WIKI_DIR/resources/assets/wiki.png"
 
 # Import styling pages from live wiki
 echo "Importing CSS and sidebar from live wiki..."
@@ -27,37 +29,40 @@ for PAGE in "MediaWiki:Common.css" "MediaWiki:Vector.css" "MediaWiki:Common.js" 
   php "$WIKI_DIR/maintenance/importDump.php" /tmp/page.xml 2>/dev/null
 done
 
-# Add archive customizations to LocalSettings.php
-echo "Adding archive customizations..."
+# Remove old ARCHIVE STYLING block if it exists (we'll add updated version)
+echo "Updating LocalSettings.php..."
+sed -i '/## ARCHIVE STYLING/,/^};$/d' "$WIKI_DIR/LocalSettings.php"
 
-# Check if our customizations already exist
-if ! grep -q "ARCHIVE STYLING" "$WIKI_DIR/LocalSettings.php"; then
-  cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
+# Add archive customizations to LocalSettings.php
+cat >> "$WIKI_DIR/LocalSettings.php" << 'SETTINGS'
 
 ## ================================================
 ## ARCHIVE STYLING - Match live wiki appearance
 ## ================================================
 
+# Use legacy Vector skin (with permanent sidebar, not collapsible)
+$wgDefaultSkin = 'vector';
+$wgVectorDefaultSkinVersion = '1';
+
 # Use the same logo as live wiki
-$wgLogos = [
-    '1x' => "$wgResourceBasePath/resources/assets/wiki-logo.png",
-];
+$wgLogo = "$wgResourceBasePath/resources/assets/wiki.png";
 
 # Hide login/account elements and add archive banner via CSS
 $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
     $out->addInlineStyle('
         /* Hide login and account creation */
         #pt-login, #pt-login-2, #pt-createaccount, #pt-anonuserpage,
-        .mw-portlet-personal, #p-personal,
-        #ca-viewsource, #ca-edit, #ca-history,
-        .vector-user-links { display: none !important; }
+        #pt-preferences, #pt-watchlist, #pt-mycontris, #pt-mytalk,
+        #p-personal, .vector-user-links,
+        #ca-viewsource, #ca-edit, #ca-history, #ca-watch, #ca-unwatch,
+        .mw-editsection { display: none !important; }
 
         /* Hide sitenotice (we use fixed banner instead) */
         #siteNotice { display: none !important; }
 
         /* Fixed archive banner at top */
         body::before {
-            content: "ARCHIVED SNAPSHOT of GSWiki • View live wiki at gswiki.play.net";
+            content: "ARCHIVED SNAPSHOT of GSWiki • Visit gswiki.play.net for live wiki";
             display: block;
             position: fixed;
             top: 0;
@@ -70,19 +75,20 @@ $wgHooks['BeforePageDisplay'][] = function ( OutputPage &$out, Skin &$skin ) {
             padding: 8px 20px;
             font-weight: bold;
             z-index: 9999;
+            font-size: 14px;
         }
 
         /* Push page content down to account for fixed banner */
-        body { padding-top: 45px !important; }
+        body { margin-top: 40px !important; }
     ');
     return true;
 };
 SETTINGS
-fi
 
 # Clear caches
 echo "Clearing caches..."
 php "$WIKI_DIR/maintenance/rebuildLocalisationCache.php" --force 2>/dev/null || true
+rm -rf "$WIKI_DIR/cache/*" 2>/dev/null || true
 
 # Re-enable read-only
 echo "Re-enabling read-only mode..."
@@ -90,4 +96,7 @@ sed -i 's/^# \$wgReadOnly/$wgReadOnly/' "$WIKI_DIR/LocalSettings.php"
 
 echo ""
 echo "=== Done! ==="
-echo "Refresh the page to see the updated styling."
+echo "Refresh the page (Ctrl+Shift+R to bypass cache) to see changes."
+echo ""
+echo "NOTE: Images still need to be imported separately:"
+echo "  python3 /root/gswiki_archive/server/import-content.py --images"

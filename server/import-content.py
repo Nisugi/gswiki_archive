@@ -5,9 +5,13 @@ GSWiki Archive - Content Import Script
 Fetches pages from GSWiki via API and imports them into the local MediaWiki.
 Run this on the VPS after MediaWiki is set up.
 
+Imports ALL pages including character pages. Only User:/Talk: namespaces are skipped.
+
 Usage:
-    python3 import-content.py --full     # Full import of all pages
-    python3 import-content.py --recent   # Import recent changes only
+    python3 import-content.py --full      # Full import of all pages
+    python3 import-content.py --recent    # Import recent changes only
+    python3 import-content.py --templates # Templates, categories, MediaWiki pages only
+    python3 import-content.py --images    # Import images
 """
 
 import argparse
@@ -64,10 +68,7 @@ def enable_read_only():
         print(f"  Warning: Could not re-enable read-only: {e}")
         return False
 
-# Templates to exclude (character pages)
-EXCLUDE_TEMPLATES = ["Template:Characterprofile"]
-
-# Namespaces to skip
+# Namespaces to skip (User/Talk pages only - we want ALL content including character pages)
 SKIP_NAMESPACES = ["User:", "User_talk:", "Talk:"]
 
 def api_request(params, description="API request"):
@@ -123,44 +124,11 @@ def get_all_pages():
     return pages
 
 
-def get_character_pages():
-    """Get list of character pages to exclude."""
-    print("Fetching character pages to exclude...")
-    char_pages = set()
-
-    for template in EXCLUDE_TEMPLATES:
-        params = {
-            "action": "query",
-            "list": "embeddedin",
-            "eititle": template,
-            "eilimit": "500",
-        }
-
-        while True:
-            data = api_request(params.copy(), f"fetching {template} users")
-            if not data:
-                break
-
-            batch = data.get("query", {}).get("embeddedin", [])
-            for page in batch:
-                char_pages.add(page["title"])
-
-            if "continue" in data:
-                params["eicontinue"] = data["continue"]["eicontinue"]
-            else:
-                break
-
-    print(f"  Found {len(char_pages)} character pages to exclude")
-    return char_pages
-
-
-def should_skip_page(title, char_pages):
-    """Check if a page should be skipped."""
+def should_skip_page(title):
+    """Check if a page should be skipped (User/Talk namespaces only)."""
     for ns in SKIP_NAMESPACES:
         if title.startswith(ns):
             return True
-    if title in char_pages:
-        return True
     return False
 
 
@@ -267,15 +235,14 @@ def import_images():
 
 
 def full_import():
-    """Perform full import of all pages."""
+    """Perform full import of all pages (including character pages)."""
     print("\n=== FULL IMPORT ===\n")
 
     # Get all pages
     all_pages = get_all_pages()
-    char_pages = get_character_pages()
 
-    # Filter pages
-    pages_to_import = [p for p in all_pages if not should_skip_page(p, char_pages)]
+    # Filter only User/Talk namespaces
+    pages_to_import = [p for p in all_pages if not should_skip_page(p)]
     print(f"\nPages to import: {len(pages_to_import)}")
 
     # Import in batches
@@ -395,8 +362,8 @@ def recent_import(days=7):
     changes = data.get("query", {}).get("recentchanges", [])
     titles = list(set(c["title"] for c in changes))
 
-    char_pages = get_character_pages()
-    titles = [t for t in titles if not should_skip_page(t, char_pages)]
+    # Filter only User/Talk namespaces
+    titles = [t for t in titles if not should_skip_page(t)]
 
     print(f"Recent pages to import: {len(titles)}")
 
