@@ -20,7 +20,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 # Add project root to path for shared lib
@@ -56,6 +56,7 @@ LOG_DIR = Path(os.environ.get("LOG_DIR", "/var/log"))
 # Derived paths
 LOCAL_SETTINGS = Path(LOCAL_WIKI_DIR) / "LocalSettings.php"
 ARCHIVE_DATE_FILE = Path(LOCAL_WIKI_DIR) / ".archive-date"
+RECENT_MARKER_FILE = Path(LOCAL_WIKI_DIR) / ".recent-import-ts"
 
 # Set up logging
 logger = setup_logging(
@@ -106,6 +107,26 @@ def update_archive_date():
         ARCHIVE_DATE_FILE.write_text(datetime.now().strftime('%b %d, %Y'))
     except Exception as e:
         logger.warning(f"Could not update archive date: {e}")
+
+
+def load_recent_marker(days_default: int = 7) -> str:
+    """Return ISO timestamp to use as rcend for recent changes."""
+    if RECENT_MARKER_FILE.exists():
+        try:
+            return RECENT_MARKER_FILE.read_text().strip()
+        except Exception as e:
+            logger.warning(f"Could not read recent marker; using default window: {e}")
+
+    fallback = (datetime.now(timezone.utc) - timedelta(days=days_default)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return fallback
+
+
+def save_recent_marker(timestamp: str):
+    """Persist last recent import timestamp."""
+    try:
+        RECENT_MARKER_FILE.write_text(timestamp)
+    except Exception as e:
+        logger.warning(f"Could not write recent marker: {e}")
 
 
 def import_xml(xml_content: str) -> bool:
@@ -201,16 +222,15 @@ def recent_import():
     """Import only recently changed pages."""
     logger.info("=== IMPORTING RECENT CHANGES ===")
 
-    # Get recent changes (API default is last 30 days)
-    from datetime import timezone
-    # Use a date far in the past to get all recent changes the API will give us
-    since = "2000-01-01T00:00:00Z"
+    # Use last run marker if present; otherwise default to 7-day window
+    since = load_recent_marker()
     titles = list(api.get_recent_changes(since))
 
-    logger.info(f"Recent pages to import: {len(titles)}")
+    logger.info(f"Recent pages to import since {since}: {len(titles)}")
 
     if not titles:
         logger.info("No changes to import")
+        save_recent_marker(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
         return
 
     total_batches = (len(titles) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -225,6 +245,7 @@ def recent_import():
         failed += batch_failed
 
     logger.info(f"=== IMPORT COMPLETE === Imported: {imported}, Failed: {failed}")
+    save_recent_marker(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
 def import_images():
